@@ -13,8 +13,9 @@ from telegram.utils.helpers import escape_markdown
 # from telegram.update import Update
 
 # from telegram.ext.utils.promise import CallbackContext
-
-from post_nf_bot import *
+from bot.msg_utils import deleteMessage, sendMessage
+from bot.decorators import is_authorised, is_owner
+from bot import *
 
 import os
 # import json
@@ -163,12 +164,13 @@ def downloadUrl(url: str):
         return file_name
 
 
-def sendMessage(text: str, bot, update: Update, parse_mode='HTMl'):
-    return bot.send_message(update.message.chat_id,
-                            reply_to_message_id=update.message.message_id,
-                            text=text,
-                            parse_mode=parse_mode)
+# def sendMessage(text: str, bot, update: Update, parse_mode='HTMl'):
+#     return bot.send_message(update.message.chat_id,
+#                             reply_to_message_id=update.message.message_id,
+#                             text=text,
+#                             parse_mode=parse_mode)
 
+@is_authorised
 def postNode(update, context):
     args = update.message.text.split(" ")
     if len(args) > 1:
@@ -181,7 +183,7 @@ def postNode(update, context):
             info_movie = movies(info_scrap)
             print('info_movie')
             file_name = downloadUrl(info_scrap['imagen'])
-            send_img(file_name, context.bot, f'<b>{info_scrap["titleOriginal"]}</b>\n<i>{info_scrap["titulo"]}</i>')
+            send_img(file_name, context.bot, f'<b>{info_scrap["titleOriginal"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/movie/{info_movie["id"]}">themoviedb</a> - <a href="https://www.imdb.com/title/{info_movie["imdb_id"]}/">imdb</a>')
             # writeFile(f'{file_name}.txt')
             # send_file(f'{file_name}.txt')
             # deleteFile(f'{file_name}.txt')

@@ -3,7 +3,7 @@ import os
 import sys
 
 import telegram.ext as tg
-from post_nf_bot.config import *
+from bot.config import *
 
 if os.path.exists('log.txt'):
     with open('log.txt', 'r+') as f:
@@ -36,7 +36,7 @@ bot = updater.bot
 dispatcher = updater.dispatcher
 
 # Load at end to ensure all prev variables have been set
-from post_nf_bot.modules.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
+from bot.modules.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
 
 # make sure the regex handler can take extra kwargs
 tg.RegexHandler = CustomRegexHandler
