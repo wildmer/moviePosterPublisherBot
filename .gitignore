@@ -1,5 +1,5 @@
-*__pycache__
+# Byte-compiled / optimized / DLL files
+__pycache__/
 log.txt
-apiTheMovieDB.py
 config.py
 posterNF.py

@@ -23,12 +23,19 @@ if sys.version_info[0] < 3 or sys.version_info[1] < 6:
     LOGGER.error("You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting.")
     quit(1)
 
-# BOT_TOKEN = BOT_TOKEN
-# ID_OWNER = ID_OWNER
-# ID_CHAT = ID_CHAT
-# ID_CHAT_POSTS = ID_CHAT_POSTS
+if sys.platform.startswith("win"):
+    # windows
+    print('windows')
+elif sys.platform.startswith("darwin"):
+    # MacOs
+    print('MacOs')
+elif sys.platform.startswith("linux"):
+    # linux
+    print('linux')
+else:
+    print("Sorry, operating system not supported")
+    # exit(0)
 
-# print(ID_CHAT)
 TOKEN = BOT_TOKEN
 updater = tg.Updater(TOKEN, use_context=True, workers=WORKERS)
 

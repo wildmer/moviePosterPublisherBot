@@ -1,67 +1,120 @@
-# import importlib
-import re
 from typing import Optional, List
 
-from telegram import Message, Chat, Update, Bot, User
+# from telegram import Message, Chat, Update, Bot, User
 from telegram import ParseMode, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.error import Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
+# from telegram.error import Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
 from telegram.ext import CommandHandler, Filters, MessageHandler, CallbackQueryHandler
-from telegram.ext.dispatcher import run_async, DispatcherHandlerStop
-from telegram.utils.helpers import escape_markdown
+# from telegram.ext.dispatcher import run_async, DispatcherHandlerStop
+# from telegram.utils.helpers import escape_markdown
 
 # from telegram.message import Message
 # from telegram.update import Update
 
 # from telegram.ext.utils.promise import CallbackContext
-from bot.msg_utils import deleteMessage, sendMessage
+from bot.msg_utils import deleteMessage, sendMessage, sendFile, sendPhoto
 from bot.decorators import is_authorised, is_owner
 from bot import *
 
 import os
-# import json
+import json
 import math
 import codecs
-import telegram
+# import telegram
 import requests
 import unicodedata
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 # from telegram.ext import Updater
-from telegram import InputFile
-
-# from importlib.resources import contents
-# from urllib import response
-# import requests
-import json
-# import CrearHtml
+# from telegram import InputFile
 
 
-info_movie = {}
+data_movie = {}
 
-def movies(data):
-    SEARCH_NAME = SEARCH_NAME_MOVIE
-    SEARCH_ID = SEARCH_ID_MOVIE
+class themoviedb:
+    def __init__(self, title:str, ano:str) -> None:
+        # pass
+        self.title = title
+        self.ano = ano
+        self.ID : int = None
+        self.API = '12c73c03e322d7711c1bf808d29b35be'
+        self.LANGUAGE = 'es-MX'
+        self.URL = 'https://api.themoviedb.org/3/'
 
-    titulo = data["titleOriginal"]
-    titulo = titulo.replace(' ', '+')
+        self.SEARCH_NAME_MOVIE = 'search/movie'
+        self.SEARCH_NAME_TV = 'search/tv'
+        self.SEARCH_ID_MOVIE = 'movie/'
+        self.SEARCH_ID_TV = 'tv/'
     
-    request = requests.get(f"{URL}{SEARCH_NAME}?api_key={API}&query={titulo}")
-    response = json.loads(request.text)
-    
-    if (response["total_results"] != 0):
-        
-        for resultados in response["results"]:
-            if(resultados["title"] == data["titleOriginal"] and data["ano"] in resultados["release_date"]):
-                ide = resultados["id"]
-
-        request = requests.get(f"{URL}{SEARCH_ID}{ide}?api_key={API}&language={LANGUAGE}")
+    def _get_search_results(self, search_name=None, search_id=None):
+        request = requests.get(f"{self.URL}{search_name or search_id}?api_key={self.API}&query={self.title.replace(' ', '+')}")
         response = json.loads(request.text)
         return response
+    
+    def search_tv_shows(self):
+        response = self._get_search_results(self.SEARCH_NAME_TV)
 
-    else:
-        print("No es una pelicula o esta escrita de manera incorrecta")
+        if (response["total_results"] != 0):
+            for resultados in response["results"]:
+                if(resultados["name"] == self.title):
+                    self.ID = resultados["id"]
+            
 
-# 
+            
+#             ide = str(ide)
+#             request = requests.get(f"{URL}{SEARCH_ID}{ide}?api_key={API}&language={LANGUAGE}")
+#             response = json.loads(request.text)
+
+#             if(len(response.keys()) != 2):
+#                 titulo = response["name"]
+#                 generos = ""
+#                 for gen in response["genres"]:
+#                     generos += gen["name"] + ", "
+#                 generos = generos[:len(generos) -2]
+#                 # sipnosis = response["overview"]
+#                 # imdbID = response["imdb_id"]
+#                 temporadas = response["seasons"]
+#                 if response["status"] == "Canceled":
+#                     estado = "Cancelada"
+#                 else:
+#                     estado = "En produccion"
+                
+#                 for temporada in temporadas:
+#                     seasonId = temporada["id"]
+#                     seasonDate = temporada["air_date"]
+#                     seasonEpisodes = temporada["episode_count"]
+#                     seasonName = temporada["name"]
+#                     # seasonOverview = temporada["overview"]
+#                     seasonPoster = temporada["poster_path"]
+
+#                     print(seasonId,seasonDate,seasonEpisodes,seasonName,seasonPoster)
+
+
+
+#         # else:
+#         #     print("No se encotro la serie")
+#     else:
+#         print("No es una serie o esta escrita de manera incorrecta")
+    
+    def search_movies(self):
+        global data_movie
+        response = self._get_search_results(self.SEARCH_NAME_MOVIE)
+        
+        if (response["total_results"] != 0):
+            for resultados in response["results"]:
+                if(resultados["title"] == self.title and self.ano in resultados["release_date"]):
+                    self.ID = resultados["id"]
+                    break
+                else:
+                    self.ID = None
+            
+            request = requests.get(f"{self.URL}{self.SEARCH_ID_MOVIE}{self.ID}?api_key={self.API}&language={self.LANGUAGE}")
+            response = json.loads(request.text)
+            # return response
+            data_movie = response
+        else:
+            data_movie = {}
+            print("No es una pelicula o esta escrita de manera incorrecta")
+
 def scrap_url(url):
     _infoScrap = {}
 
@@ -111,37 +164,13 @@ def scrap_url(url):
 
 # 
 
-
-def send_file(file_path):
-    # Abrir el archivo
-    with open(file_path, 'rb') as f:
-        input_file = InputFile(f)
-        # Enviar archivo al chat
-    try:
-        updater.bot.send_document(chat_id=ID_CHAT, document=input_file)
-    except telegram.error.TelegramError as e:
-        print(f"Error al enviar documento: {e}")
-
 def deleteFile(fileName):
     os.remove(fileName)
 
 def writeFile(fileName):
-    archivo = codecs.open(fileName, "a", "utf-8")
-    archivo.write(f'{info_movie}')
+    with codecs.open(fileName, "a", "utf-8") as archivo:
+        archivo.write(f'{data_movie}') #corregir la variable
 
-def send_img(file_path, bot, text=''):
-    # print(info_movie)
-    # exit()
-    # Abrir el archivo
-    with open(file_path, 'rb') as f:
-        input_file = InputFile(f)
-        # Enviar archivo al chat
-        # updater.bot.send_document(chat_id='-1001596325178', document=input_file)
-    try:
-        bot.send_photo(chat_id=ID_CHAT_POSTS, photo=input_file, caption=text, parse_mode=ParseMode.HTML)
-        # updater.bot.send_document(chat_id=ID, document=input_file)
-    except telegram.error.TelegramError as e:
-        print(f"Error al enviar documento: {e}")
 
 def downloadUrl(url: str):
     file_name = url.split("/")[-1].replace("%2B", " ")
@@ -163,13 +192,6 @@ def downloadUrl(url: str):
         print("Descarga completada.")
         return file_name
 
-
-# def sendMessage(text: str, bot, update: Update, parse_mode='HTMl'):
-#     return bot.send_message(update.message.chat_id,
-#                             reply_to_message_id=update.message.message_id,
-#                             text=text,
-#                             parse_mode=parse_mode)
-
 @is_authorised
 def postNode(update, context):
     args = update.message.text.split(" ")
@@ -180,16 +202,50 @@ def postNode(update, context):
             msg = sendMessage(f"<b>Scrapeando:</b> <code>{link}</code>", context.bot, update)
             info_scrap = scrap_url(link)
             print('info_scrap')
-            info_movie = movies(info_scrap)
-            print('info_movie')
+
+            bot = themoviedb(info_scrap["titleOriginal"], info_scrap["ano"])
+            bot.search_movies()
+
+            # info_movie = movies(info_scrap)
+            print('data_movie')
+            # print(data_movie)
             file_name = downloadUrl(info_scrap['imagen'])
-            send_img(file_name, context.bot, f'<b>{info_scrap["titleOriginal"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/movie/{info_movie["id"]}">themoviedb</a> - <a href="https://www.imdb.com/title/{info_movie["imdb_id"]}/">imdb</a>')
+
+            sendPhoto(file_name, context.bot, f'<b>{info_scrap["titleOriginal"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/movie/{data_movie["id"]}">themoviedb</a> - <a href="https://www.imdb.com/title/{data_movie["imdb_id"]}/">imdb</a>')
+            # # writeFile(f'{file_name}.txt')
+            # # sendFile(f'{file_name}.txt', context.bot, update)
+            # # deleteFile(f'{file_name}.txt')
+            deleteFile(file_name)
+
+
+        else:
+            sendMessage("Proporciona un enlace valido", context.bot, update)
+    else:
+        sendMessage("Por favor proporciona un enlace.", context.bot, update)
+
+@is_authorised
+def post_tv_show_Node(update, context):
+    args = update.message.text.split(" ")
+    if len(args) > 1:
+        link = args[1]
+
+        if HOST in link:
+            msg = sendMessage(f"<b>Scrapeando:</b> <code>{link}</code>", context.bot, update)
+            info_scrap = scrap_url(link)
+            print('info_scrap')
+            bot = themoviedb(info_scrap["titleOriginal"], info_scrap["ano"])
+            bot.search_movies()
+
+            # info_movie = movies(info_scrap)
+            file_name = downloadUrl(info_scrap['imagen'])
+
+            sendPhoto(file_name, context.bot, f'<b>{info_scrap["titleOriginal"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/movie/{data_movie["id"]}">themoviedb</a> - <a href="https://www.imdb.com/title/{data_movie["imdb_id"]}/">imdb</a>')
             # writeFile(f'{file_name}.txt')
-            # send_file(f'{file_name}.txt')
+            # sendFile(f'{file_name}.txt', context.bot, update)
             # deleteFile(f'{file_name}.txt')
             deleteFile(file_name)
 
-            
+
         else:
             sendMessage("Proporciona un enlace valido", context.bot, update)
     else:
@@ -206,11 +262,13 @@ def main():
     LOGGER.info("Bot Started!")
 
     start_handler = CommandHandler("start", start, pass_args=True, run_async=True)
-    post_handler = CommandHandler('post', postNode)
+    post_handler = CommandHandler('movie', postNode)
+    post_tv_show_handler = CommandHandler('show', post_tv_show_Node)
     # start_handler = CommandHandler("start", start, pass_args=True)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(post_handler)
+    dispatcher.add_handler(post_tv_show_handler)
 
 # 
     LOGGER.info("Using long polling.")
@@ -219,8 +277,7 @@ def main():
     updater.idle()
 
 
-
 if __name__ == '__main__':
-    # LOGGER.info("Bot Started!")
     # LOGGER.info("Successfully loaded modules: ")
     main()
+    
