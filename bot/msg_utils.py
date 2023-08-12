@@ -1,8 +1,8 @@
-from bot import LOGGER, ID_CHAT, ID_CHAT_POSTS
+import telegram
+from bot import ID_CHAT, ID_CHAT_POSTS, LOGGER
+from telegram import InputFile
 from telegram.message import Message
 from telegram.update import Update
-from telegram import InputFile
-import telegram
 
 def deleteMessage(bot, message: Message):
     try:
@@ -13,11 +13,23 @@ def deleteMessage(bot, message: Message):
         LOGGER.error(str(e))
 
 def sendMessage(text: str, bot, update: Update, parse_mode='HTMl'):
-    return bot.send_message(
-        update.message.chat_id,
-        reply_to_message_id=update.message.message_id,
-        text=text,
-        parse_mode=parse_mode)
+    try:
+        return bot.send_message(
+            update.message.chat_id,
+            reply_to_message_id=update.message.message_id,
+            text=text,
+            allow_sending_without_reply=True,
+            parse_mode=parse_mode)
+    except Exception as e:
+        LOGGER.error(str(e))
+
+# def editMessage(text: str, message: Message, reply_markup=None):
+#     try:
+#         bot.edit_message_text(text=text, message_id=message.message_id,
+#                               chat_id=message.chat.id,reply_markup=reply_markup,
+#                               parse_mode='HTMl')
+#     except Exception as e:
+#         LOGGER.error(str(e))
 
 def sendFile(file, bot, update: Update):
     # Abrir el archivo

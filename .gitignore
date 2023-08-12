@@ -3,3 +3,6 @@ __pycache__/
 log.txt
 config.py
 posterNF.py
+a.py
+tv/
+movie/
