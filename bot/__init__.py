@@ -26,13 +26,16 @@ if sys.version_info[0] < 3 or sys.version_info[1] < 6:
 
 if sys.platform.startswith("win"):
     # windows
-    print('windows')
+    # print('windows')
+    LOGGER.info('SO > windows')
 elif sys.platform.startswith("darwin"):
     # MacOs
-    print('MacOs')
+    # print('MacOs')
+    LOGGER.info('SO > MacOs')
 elif sys.platform.startswith("linux"):
     # linux
-    print('linux')
+    # print('linux')
+    LOGGER.info('SO > linux')
 else:
     print("Sorry, operating system not supported")
     # exit(0)

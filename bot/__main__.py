@@ -1,7 +1,7 @@
 import codecs
 import json
 import math
-import os
+# import os
 import unicodedata
 from typing import List, Optional
 
@@ -10,10 +10,10 @@ import requests
 from bot import *
 from bot.decorators import is_authorised, is_owner
 # from telegram.ext.utils.promise import CallbackContext
-from bot.msg_utils import deleteMessage, sendFile, sendMessage, sendPhoto
+from bot.msg_utils import deleteMessage, editMessage, sendFile, sendMessage, sendPhoto
 from bs4 import BeautifulSoup
 # from telegram import Message, Chat, Update, Bot, User
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+# from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 # from telegram.error import Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
 from telegram.ext import CallbackQueryHandler, CommandHandler, Filters, MessageHandler
 from tqdm import tqdm
@@ -24,67 +24,89 @@ from tqdm import tqdm
 # from telegram.message import Message
 # from telegram.update import Update
 
-
 # from telegram.ext import Updater
 # from telegram import InputFile
 
 
 data_movie = {}
 
-class themoviedb:
-    def __init__(self, title:str, release_date:str) -> None:
-        
+class TheMovieDB:
+    def __init__(self, title: str, release_date: str) -> None:
         self.title = title
         self.release_date = release_date
-        self.ID : int = None
-        self.URL = 'https://api.themoviedb.org/3/'
-    
+        self.ID: int = None
+
     def _get_search_results(self, search_name=None, search_id=None) -> dict:
-        request = requests.get(f"{self.URL}{search_name or search_id}?api_key={API}&query={self.title.replace(' ', '+')}")
-        response = json.loads(request.text)
-        return response
+        payload = {}
+        headers = {'Authorization': ACCESS_TOKEN_AUTH}
+        _url = f"{URL_THEMOVIEDB}{search_name or search_id}"
+
+        if not search_name:
+            _url = f"{_url}{self.ID}?append_to_response=external_ids"
+
+        if not search_id:
+            _url = f"{_url}?query={self.title.replace(' ', '+')}&include_adult=true"
+            # "&primary_release_year=2006&page=1"
+        _url = f"{_url}&language={LANGUAGE}"
+
+        print(_url)
+
+        try:
+            response = requests.get(_url, headers=headers, data=payload)
+            response.raise_for_status()  # Manejo de errores HTTP
+            # print(response.json())
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Error en la solicitud: {e}")  # Elevación de excepción
         # Puedes usar tambien omdbapi, con el titulo origina te da la pelicula de una, aunque igual tendrias el imdb, de modo que tendrias qu buscar de nuevo
         # request = requests.get(f"http://www.omdbapi.com/?t=sex+education&y=2019&apikey={API_OMDB}")
-    
-    def search_movies(self):
-        global data_movie
-        response = self._get_search_results(SEARCH_NAME_MOVIE)
-        
-        if (response["total_results"] != 0):
-            for resultados in response["results"]:
-                print(resultados["title"], self.title, self.release_date, resultados["release_date"])
-                if(resultados["title"] == self.title and self.release_date == resultados["release_date"]):
-                    self.ID = resultados["id"] # eroror
-                    break 
-            # return
-            
-            # if(len(response.keys()) != 2):
-            request = requests.get(f"{self.URL}{SEARCH_ID_MOVIE}{self.ID}?api_key={API}&language={LANGUAGE}")
-            response = json.loads(request.text)
-            data_movie = response
-            # else:
-            #     print(response)
-        else:
-            print("No es una pelicula o esta escrita de manera incorrecta")
-    
-    def search_tv_shows(self):
-        global data_movie
-        response = self._get_search_results(SEARCH_NAME_TV)
-        
-        if (response["total_results"] != 0):
-            for resultados in response["results"]:
-                if(resultados["original_name"] == self.title and self.release_date == resultados["first_air_date"]):
-                    self.ID = resultados["id"]
-                    break
-                else:
-                    print('No se encotro el id', self.title)
-                    return
 
-            request = requests.get(f"{URL}{SEARCH_ID_TV}{self.ID}?api_key={API}&language={LANGUAGE}")
-            response = json.loads(request.text)
-            data_movie = response
-            # print(data_movie)
-            # return
+    def search_movies(self):
+        # global data_movie
+        response = self._get_search_results(SEARCH_NAME_MOVIE)
+
+        if not (response and response["total_results"] != 0):
+            print("No es una película o está escrita de manera incorrecta")
+            return None
+
+        for result in response["results"]:
+            if (
+                result["original_title"] == self.title
+                and (
+                    self.release_date == result["release_date"]
+                    or self.release_date[:4] == result["release_date"][:4]
+                )
+            ):
+                self.ID = result["id"]
+                break
+
+        if self.ID:
+            return self._get_search_results(None, SEARCH_ID_MOVIE)
+        return None
+
+    def search_tv_shows(self):
+        # global data_movie
+        response = self._get_search_results(SEARCH_NAME_TV)
+
+        if not (response and response["total_results"] != 0):
+            print("No es una serie o está escrita de manera incorrecta")
+            return None
+
+        for result in response["results"]:
+            if (
+                result["original_name"] == self.title
+                and self.release_date == result["first_air_date"]
+            ):
+                self.ID = result["id"]
+                break
+
+        if self.ID:
+            return self._get_search_results(None, SEARCH_ID_TV)
+        return None
+
+
+        # print(data_movie)
+        # return
 
 
 #             if(len(response.keys()) != 2):
@@ -115,8 +137,6 @@ class themoviedb:
 
 #         # else:
 #         #     print("No se encotro la serie")
-#     else:
-#         print("No es una serie o esta escrita de manera incorrecta")
 
 def _parse_date(date : str) -> str:
     from datetime import datetime
@@ -196,9 +216,11 @@ def ping(update, context):
     end_time = int(round(time.time() * 1000))
     editMessage(f'{end_time - start_time} ms', reply)
 
+def sendlog(update, context):
+    sendFile('log.txt', context.bot, update)
+
 def downloadUrl(url: str):
     file_name = url.split("/")[-1].replace("%2B", " ")
-    print(file_name, "ok")
 
     response = requests.get(url, stream=True)
     total_size = int(response.headers.get('content-length', 0))
@@ -213,7 +235,8 @@ def downloadUrl(url: str):
     if total_size != 0 and written != total_size:
         print("Error durante la descarga.")
     else:
-        print("Descarga completada.")
+        # print("Descarga completada.")
+        LOGGER.info(f"{file_name} > Descarga completada.")
         return file_name
     
 def is_valid_link(url: str):
@@ -287,14 +310,20 @@ def post_movie_Node(update, context):
     if is_valid_link(link):
         msg = sendMessage(f"<b>Scrapeando:</b> <code>{link}</code>", context.bot, update)
         info_scrap = scrap_url(link)
-        print('info_scrap')
-        bot = themoviedb(info_scrap["original_title"], info_scrap["release_date"])
-        bot.search_movies()
+        # print('info_scrap')
+        tmdb = TheMovieDB(info_scrap["original_title"], info_scrap["release_date"])
+        data_movie = tmdb.search_movies()
+        if data_movie:
+            print(data_movie)
+        else:
+            print("No se encontraron resultados.")
+            return None
 
         # info_movie = movies(info_scrap)
         file_name = downloadUrl(info_scrap['imagen'])
 
         sendPhoto(file_name, context.bot, f'<b>{info_scrap["original_title"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/movie/{data_movie["id"]}">themoviedb</a> - <a href="https://www.imdb.com/title/{data_movie["imdb_id"]}/">imdb</a>')
+        make_folder('movie')
         create_file(f'movie/{data_movie["id"]}.json')
 
         # # create_file(f'{file_name}.txt')
@@ -305,8 +334,6 @@ def post_movie_Node(update, context):
 
     else:
         sendMessage("Proporciona un enlace valido", context.bot, update)
-    # else:
-    #     sendMessage("Por favor proporciona un enlace.", context.bot, update)
 
 @is_authorised
 def post_tv_Node(update, context):
@@ -315,9 +342,15 @@ def post_tv_Node(update, context):
     if is_valid_link(link):
         msg = sendMessage(f"<b>Scrapeando:</b> <code>{link}</code>", context.bot, update)
         info_scrap = scrap_url(link)
-        print('info_scrap')
-        bot = themoviedb(info_scrap["original_title"], info_scrap["release_date"])
-        bot.search_tv_shows()
+        # print('info_scrap')
+        tmdb = TheMovieDB(info_scrap["original_title"], info_scrap["release_date"])
+        data_movie = tmdb.search_tv_shows()
+
+        if data_movie:
+            print(data_movie)
+        else:
+            print("No se encontraron resultados.")
+            return None
 
         # info_movie = movies(info_scrap)
         file_name = downloadUrl(info_scrap['imagen'])
@@ -332,33 +365,30 @@ def post_tv_Node(update, context):
 
     else:
         sendMessage("Proporciona un enlace valido", context.bot, update)
-    # else:
-    #     sendMessage("Por favor proporciona un enlace.", context.bot, update)
 
 # @run_async
 def start(update, context):
-    context.bot.send_message(
-        update.message.chat_id,
-        reply_to_message_id=update.message.message_id,
-        text="waked up😏😏😏")
+    sendMessage("waked up😏😏😏", context.bot, update)
 
 def main():
-
-    LOGGER.info("Bot Started!")
-
     start_handler = CommandHandler("start", start, pass_args=True, run_async=True)
     post_movie_handler = CommandHandler('movie', post_movie_Node)
     post_tv_handler = CommandHandler('show', post_tv_Node)
     post_info_handler = CommandHandler('info', post_info)
+    ping_handler = CommandHandler('ping', ping)
+    send_log_handler = CommandHandler('log', sendlog)
     # start_handler = CommandHandler("start", start, pass_args=True)
 
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(post_movie_handler)
     dispatcher.add_handler(post_tv_handler)
     dispatcher.add_handler(post_info_handler)
+    dispatcher.add_handler(ping_handler)
+    dispatcher.add_handler(send_log_handler)
 #
     LOGGER.info("Using long polling.")
     updater.start_polling(timeout=15, read_latency=4)
+    LOGGER.info("Bot Started!")
 
     updater.idle()
 
@@ -366,3 +396,19 @@ def main():
 if __name__ == '__main__':
     # LOGGER.info("Successfully loaded modules: ")
     main()
+    # read_file('tv', '615')
+    # tmdb = TheMovieDB("Cars", "2006-06-08")
+    # tmdb.search_movies()
+    # print(tmdb.search_movies())
+    # tmdb = TheMovieDB("Sex Education", "2019-01-11")
+    # print(tmdb.search_tv_shows())
+    # create_file('movies/test.txt')
+    # info_scrap = scrap_url('https://www.latinomegahd.net/futurama-serie-de-tv-temporada-10-2013-latino-hd-dsnp-web-dl-1080p/')
+    # print(scrap_url('https://www.latinomegahd.net/sonrie-2022-latino-ultrahd-hdr-bdremux-2160p/'))
+    # info_scrap = scrap_url('https://www.latinomegahd.net/amenaza-bajo-el-agua-no-podras-escapar-2020-latino-hd-brrip-1080p/')
+    # info_scrap = scrap_url('https://www.latinomegahd.net/sonrie-2022-latino-ultrahd-hdr-bdremux-2160p/')
+    # tmdb = TheMovieDB(info_scrap["original_title"], info_scrap["release_date"])
+    # tmdb.search_tv_shows()
+    # tmdb.search_movies()
+
+    # added command /ping and /log

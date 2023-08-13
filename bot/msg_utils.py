@@ -1,5 +1,5 @@
 import telegram
-from bot import ID_CHAT, ID_CHAT_POSTS, LOGGER
+from bot import ID_CHAT, ID_CHAT_POSTS, LOGGER, bot
 from telegram import InputFile
 from telegram.message import Message
 from telegram.update import Update
@@ -23,21 +23,23 @@ def sendMessage(text: str, bot, update: Update, parse_mode='HTMl'):
     except Exception as e:
         LOGGER.error(str(e))
 
-# def editMessage(text: str, message: Message, reply_markup=None):
-#     try:
-#         bot.edit_message_text(text=text, message_id=message.message_id,
-#                               chat_id=message.chat.id,reply_markup=reply_markup,
-#                               parse_mode='HTMl')
-#     except Exception as e:
-#         LOGGER.error(str(e))
+def editMessage(text: str, message: Message, reply_markup=None):
+    try:
+        bot.edit_message_text(
+            text=text,
+            message_id=message.message_id,
+            chat_id=message.chat.id,reply_markup=reply_markup,
+            parse_mode='HTMl')
+    except Exception as e:
+        LOGGER.error(str(e))
 
 def sendFile(file, bot, update: Update):
     # Abrir el archivo
     with open(file, 'rb') as f:
         input_file = InputFile(f)
     try:
-        return bot.send_document(
-            chat_id=ID_CHAT,
+        bot.send_document(
+            chat_id=update.message.chat_id,
             document=input_file,
             filename=f.name,
             # chat_id=update.message.chat_id
