@@ -29,7 +29,6 @@ from tqdm import tqdm
 
 
 data_movie = {}
-
 class TheMovieDB:
     def __init__(self, title: str, release_date: str) -> None:
         self.title = title
@@ -49,8 +48,6 @@ class TheMovieDB:
             # "&primary_release_year=2006&page=1"
         _url = f"{_url}&language={LANGUAGE}"
 
-        print(_url)
-
         try:
             response = requests.get(_url, headers=headers, data=payload)
             response.raise_for_status()  # Manejo de errores HTTP
@@ -58,8 +55,6 @@ class TheMovieDB:
             return response.json()
         except requests.exceptions.RequestException as e:
             raise Exception(f"Error en la solicitud: {e}")  # Elevación de excepción
-        # Puedes usar tambien omdbapi, con el titulo origina te da la pelicula de una, aunque igual tendrias el imdb, de modo que tendrias qu buscar de nuevo
-        # request = requests.get(f"http://www.omdbapi.com/?t=sex+education&y=2019&apikey={API_OMDB}")
 
     def search_movies(self):
         # global data_movie
@@ -107,34 +102,6 @@ class TheMovieDB:
 
         # print(data_movie)
         # return
-
-
-#             if(len(response.keys()) != 2):
-#                 titulo = response["name"]
-#                 generos = ""
-#                 for gen in response["genres"]:
-#                     generos += gen["name"] + ", "
-#                 generos = generos[:len(generos) -2]
-#                 # sipnosis = response["overview"]
-#                 # imdbID = response["imdb_id"]
-#                 temporadas = response["seasons"]
-#                 if response["status"] == "Canceled":
-#                     estado = "Cancelada"
-#                 else:
-#                     estado = "En produccion"
-                
-#                 for temporada in temporadas:
-#                     seasonId = temporada["id"]
-#                     seasonDate = temporada["air_date"]
-#                     seasonEpisodes = temporada["episode_count"]
-#                     seasonName = temporada["name"]
-#                     # seasonOverview = temporada["overview"]
-#                     seasonPoster = temporada["poster_path"]
-
-#                     print(seasonId,seasonDate,seasonEpisodes,seasonName,seasonPoster)
-
-
-
 #         # else:
 #         #     print("No se encotro la serie")
 
@@ -194,15 +161,15 @@ def scrap_url(url):
     return _infoScrap
 
 #
-def create_file(file_path : str):
+def create_file(file_path : str, data : str = None):
     # with codecs.open(file_path, "a", "utf-8") as archivo:
     #     archivo.write(data_movie)
     with open(file_path, 'w', encoding='utf-8') as json_file:
-        json.dump(data_movie, json_file, ensure_ascii=False, indent=4)
+        json.dump(data, json_file, ensure_ascii=False, indent=4)
 
 def read_file(folder_path, file_path):
     with open(f"{folder_path}/{file_path}.json", 'r', encoding='utf-8') as json_file:
-        data = json.load(json_file)
+        return json.load(json_file)
 
 def delete_file(file_path : str):
     os.remove(file_path)
@@ -245,9 +212,56 @@ def is_valid_link(url: str):
 def is_themoviedb_url(url: str):
     return "themoviedb.org" in url
 
+def posst(folder_path, file_path, update, context):
+    data = read_file(folder_path, file_path)
+
+    image = downloadUrl(f"{URL_IMAGE}{data['poster_path']}")
+    sendPhoto(image, update)
+
+    msg = f"<b>{(data.get('title') or data.get('name'))} ({(data.get('release_date') or data.get('first_air_date'))[:4]})</b>"
+    msg = f"{msg}\n<i>{data['tagline']}</i>\n"
+    msg = f"{msg}\n<b>Sinopsis</b>:\n{data['overview']}\n\n"
+    if data.get('runtime'):
+        msg = f"{msg}\n{data['runtime']} min\n"
+    for genre in data['genres']:
+        msg = f"{msg}#{genre['name']} "
+    if data.get('number_of_episodes'):
+        msg = f'{msg}\nTemporadas: {data["number_of_seasons"]} Episodios: {data["number_of_episodes"]}'
+
+    msg = f"{msg}\n<a href='https://www.themoviedb.org/movie/{data['id']}?language=es'>TMDB</a> - <a href='https://www.imdb.com/title/{data['external_ids']['imdb_id']}/'>IMDB</a>"
+    sendMessage(msg, context.bot, update)
+
+    
+
+#             if(len(response.keys()) != 2):
+#                 titulo = response["name"]
+#                 generos = ""
+#                 for gen in response["genres"]:
+#                     generos += gen["name"] + ", "
+#                 generos = generos[:len(generos) -2]
+#                 # sipnosis = response["overview"]
+#                 # imdbID = response["imdb_id"]
+#                 temporadas = response["seasons"]
+#                 if response["status"] == "Canceled":
+#                     estado = "Cancelada"
+#                 else:
+#                     estado = "En produccion"
+                
+#                 for temporada in temporadas:
+#                     seasonId = temporada["id"]
+#                     seasonDate = temporada["air_date"]
+#                     seasonEpisodes = temporada["episode_count"]
+#                     seasonName = temporada["name"]
+#                     # seasonOverview = temporada["overview"]
+#                     seasonPoster = temporada["poster_path"]
+
+#                     print(seasonId,seasonDate,seasonEpisodes,seasonName,seasonPoster)
+
+    # print(msg)
+
 def post_info(update, context):
     args = update.message.text.split(' ')
-    # if len(args) > 1:
+    
     try:
         link = args[1]
     except IndexError:
@@ -270,12 +284,15 @@ def post_info(update, context):
                 reply_text = reply_to.text
                 if is_themoviedb_url(reply_text):
                     link = reply_text
-            elif reply_to.caption is not None:
-                reply_text = reply_to.caption_entities[2]['url']
-                if is_themoviedb_url(reply_text):
-                    link = reply_text
-    
+        if reply_to.caption is not None:
+            reply_text = reply_to.caption_entities[2]['url']
+            if is_themoviedb_url(reply_text):
+                link = reply_text
+    # print(link)
+    # return
     folder_path, file_path = link.split("/")[-2:]
+    posst(folder_path, file_path, update, context)
+
 
 def get_link(update):
     args = update.message.text.split(' ')
@@ -313,23 +330,22 @@ def post_movie_Node(update, context):
         # print('info_scrap')
         tmdb = TheMovieDB(info_scrap["original_title"], info_scrap["release_date"])
         data_movie = tmdb.search_movies()
-        if data_movie:
-            print(data_movie)
-        else:
+
+        if not data_movie:
             print("No se encontraron resultados.")
             return None
 
         # info_movie = movies(info_scrap)
         file_name = downloadUrl(info_scrap['imagen'])
 
-        sendPhoto(file_name, context.bot, f'<b>{info_scrap["original_title"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/movie/{data_movie["id"]}">themoviedb</a> - <a href="https://www.imdb.com/title/{data_movie["imdb_id"]}/">imdb</a>')
+        sendPhoto(file_name, update, context.bot, f'<b>{info_scrap["original_title"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/movie/{data_movie["id"]}">themoviedb</a>')
         make_folder('movie')
-        create_file(f'movie/{data_movie["id"]}.json')
+        create_file(f'movie/{data_movie["id"]}.json', data_movie)
 
         # # create_file(f'{file_name}.txt')
         # # sendFile(f'{file_name}.txt', context.bot, update)
         # # delete_file(f'{file_name}.txt')
-        # delete_file(file_name)
+        delete_file(file_name)
 
 
     else:
@@ -355,12 +371,13 @@ def post_tv_Node(update, context):
         # info_movie = movies(info_scrap)
         file_name = downloadUrl(info_scrap['imagen'])
 
-        sendPhoto(file_name, context.bot, f'<b>{info_scrap["original_title"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/tv/{data_movie["id"]}">themoviedb</a>')
+        sendPhoto(file_name, update, context.bot, f'<b>{info_scrap["original_title"]}</b>\n<i>{info_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/tv/{data_movie["id"]}">themoviedb</a>')
         make_folder('tv')
-        create_file(f'tv/{data_movie["id"]}.json')
+        create_file(f'tv/{data_movie["id"]}.json', data_movie)
+
         # sendFile(f'{file_name}.txt', context.bot, update)
         # delete_file(f'{file_name}.txt')
-        # delete_file(file_name)
+        delete_file(file_name)
 
 
     else:
@@ -393,9 +410,13 @@ def main():
     updater.idle()
 
 
+
 if __name__ == '__main__':
     # LOGGER.info("Successfully loaded modules: ")
     main()
+    # print(read_file('movie', '884605'))
+    # posst()
+
     # read_file('tv', '615')
     # tmdb = TheMovieDB("Cars", "2006-06-08")
     # tmdb.search_movies()
@@ -410,5 +431,5 @@ if __name__ == '__main__':
     # tmdb = TheMovieDB(info_scrap["original_title"], info_scrap["release_date"])
     # tmdb.search_tv_shows()
     # tmdb.search_movies()
+    # create_file(f'movie/884605.json')
 
-    # added command /ping and /log

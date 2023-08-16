@@ -19,7 +19,8 @@ def sendMessage(text: str, bot, update: Update, parse_mode='HTMl'):
             reply_to_message_id=update.message.message_id,
             text=text,
             allow_sending_without_reply=True,
-            parse_mode=parse_mode)
+            parse_mode=parse_mode,
+            disable_web_page_preview=True)
     except Exception as e:
         LOGGER.error(str(e))
 
@@ -28,7 +29,8 @@ def editMessage(text: str, message: Message, reply_markup=None):
         bot.edit_message_text(
             text=text,
             message_id=message.message_id,
-            chat_id=message.chat.id,reply_markup=reply_markup,
+            chat_id=message.chat.id,
+            reply_markup=reply_markup,
             parse_mode='HTMl')
     except Exception as e:
         LOGGER.error(str(e))
@@ -47,7 +49,7 @@ def sendFile(file, bot, update: Update):
     except telegram.error.TelegramError as e:
         print(f"Error al enviar documento: {e}")
 
-def sendPhoto(file, bot, text: str='', parse_mode='HTMl'):
+def sendPhoto(file, update: Update, bot=bot, text: str = '', parse_mode='HTMl'):
     # Abrir el archivo
     with open(file, 'rb') as f:
         input_file = InputFile(f)
@@ -56,6 +58,7 @@ def sendPhoto(file, bot, text: str='', parse_mode='HTMl'):
         return bot.send_photo(
             chat_id=ID_CHAT_POSTS,
             photo=input_file,
+            reply_to_message_id=update.message.message_id,
             caption=text,
             parse_mode=parse_mode)
         # updater.bot.send_document(chat_id=ID, document=input_file)
