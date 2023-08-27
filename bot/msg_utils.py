@@ -4,66 +4,66 @@ from telegram import InputFile
 from telegram.message import Message
 from telegram.update import Update
 
-def deleteMessage(bot, message: Message):
+def delete_message(message: Message):
     try:
         bot.delete_message(
             chat_id=message.chat.id,
-            message_id=message.message_id)
-    except Exception as e:
+            message_id=message.message_id
+        )
+    except telegram.error.TelegramError as e:
         LOGGER.error(str(e))
 
-def sendMessage(text: str, bot, update: Update, parse_mode='HTMl'):
+def send_message(text: str, update: Update, parse_mode='HTML'):
     try:
         return bot.send_message(
-            update.message.chat_id,
+            chat_id=update.message.chat_id,
             reply_to_message_id=update.message.message_id,
             text=text,
             allow_sending_without_reply=True,
             parse_mode=parse_mode,
-            disable_web_page_preview=True)
-    except Exception as e:
+            disable_web_page_preview=True
+        )
+    except telegram.error.TelegramError as e:
         LOGGER.error(str(e))
 
-def editMessage(text: str, message: Message, reply_markup=None):
+def edit_message(text: str, message: Message, reply_markup=None):
     try:
         bot.edit_message_text(
             text=text,
             message_id=message.message_id,
             chat_id=message.chat.id,
             reply_markup=reply_markup,
-            parse_mode='HTMl')
-    except Exception as e:
+            parse_mode='HTML'
+        )
+    except telegram.error.TelegramError as e:
         LOGGER.error(str(e))
 
-def sendFile(file, bot, update: Update):
-    # Abrir el archivo
-    with open(file, 'rb') as f:
-        input_file = InputFile(f)
+def send_file(file_path, update: Update):
     try:
-        bot.send_document(
-            chat_id=update.message.chat_id,
-            document=input_file,
-            filename=f.name,
-            # chat_id=update.message.chat_id
+        with open(file_path, 'rb') as f:
+            input_file = InputFile(f)
+            bot.send_document(
+                chat_id=update.message.chat_id,
+                document=input_file,
+                filename=f.name
             )
     except telegram.error.TelegramError as e:
-        print(f"Error al enviar documento: {e}")
+        LOGGER.error(f"Error al enviar documento: {e}")
 
-def sendPhoto(file, update: Update, bot=bot, text: str = '', parse_mode='HTMl'):
-    # Abrir el archivo
-    with open(file, 'rb') as f:
-        input_file = InputFile(f)
-        # Enviar archivo al chat
+def send_photo(file_path, update: Update, text: str = '', parse_mode='HTML'):
     try:
-        return bot.send_photo(
-            chat_id=ID_CHAT_POSTS,
-            photo=input_file,
-            reply_to_message_id=update.message.message_id,
-            caption=text,
-            parse_mode=parse_mode)
-        # updater.bot.send_document(chat_id=ID, document=input_file)
+        with open(file_path, 'rb') as f:
+            input_file = InputFile(f)
+            return bot.send_photo(
+                chat_id=ID_CHAT_POSTS,
+                photo=input_file,
+                reply_to_message_id=update.message.message_id,
+                caption=text,
+                parse_mode=parse_mode
+            )
     except telegram.error.TelegramError as e:
-        print(f"Error al enviar documento: {e}")
+        LOGGER.error(f"Error al enviar foto: {e}")
+
 
 # def sendFile(bot, update: Update, file):
 #     with open(file, 'rb') as f:
