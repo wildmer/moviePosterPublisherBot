@@ -8,9 +8,10 @@ from typing import List, Optional
 # import telegram
 import requests
 from bot import *
-from bot.decorators import is_authorised, is_owner
+from bot.modules.the_movie_db import TheMovieDB
+from bot.helpers.telegram_helper.decorators import is_authorised, is_owner
 # from telegram.ext.utils.promise import CallbackContext
-from bot.msg_utils import delete_message, edit_message, send_file, send_message, send_photo
+from bot.helpers.telegram_helper.msg_utils import delete_message, edit_message, send_file, send_message, send_photo
 from bs4 import BeautifulSoup
 # from telegram import Message, Chat, Update, Bot, User
 # from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
@@ -26,64 +27,6 @@ from tqdm import tqdm
 
 # from telegram.ext import Updater
 # from telegram import InputFile
-
-class TheMovieDB:
-    def __init__(self, title: str, release_date: str) -> None:
-        self.title = title
-        self.release_date = release_date
-        self.ID: int = None
-
-    def _get_search_results(self, search_name=None, search_id=None) -> dict:
-        payload = {}
-        headers = {'Authorization': ACCESS_TOKEN_AUTH}
-        _url = f"{URL_THEMOVIEDB}{search_name or search_id}"
-
-        if not search_name:
-            _url = f"{_url}{self.ID}?append_to_response=external_ids"
-
-        if not search_id:
-            _url = f"{_url}?query={self.title.replace(' ', '+')}&include_adult=true"
-            # "&primary_release_year=2006&page=1"
-        _url = f"{_url}&language={LANGUAGE}"
-
-        try:
-            response = requests.get(_url, headers=headers, data=payload)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Error en la solicitud: {e}")
-
-    def _search(self, search_name : str) -> dict:
-        response = self._get_search_results(search_name)
-
-        if not (response and response["total_results"] != 0):
-            print(f"No es una {search_name.lower()} o está escrita de manera incorrecta")
-            return None
-
-        for result in response["results"]:
-            if not result.get("release_date"):
-                result["release_date"] = "0000-00-00"
-
-            if result.get(
-                "original_title" if search_name == SEARCH_NAME_MOVIE else "original_name"
-            ) == self.title and (
-                self.release_date == result.get("first_air_date")
-                or self.release_date == result.get("release_date")
-                or self.release_date[:4] == result.get("release_date")[:4]
-            ):
-                self.ID = result["id"]
-                break
-
-        if self.ID:
-            return self._get_search_results(search_id=SEARCH_ID_MOVIE if search_name == SEARCH_NAME_MOVIE else SEARCH_ID_TV)
-        return None
-
-    def search_movies(self)-> dict:
-        return self._search(SEARCH_NAME_MOVIE)
-
-    def search_tv_shows(self)-> dict:
-        return self._search(SEARCH_NAME_TV)
-
 
 def _parse_date(date : str) -> str:
     from datetime import datetime
@@ -202,8 +145,8 @@ def posst(folder_path, file_path, update, context):
     if data.get('number_of_episodes'):
         msg = f'{msg}\nTemporadas: {data["number_of_seasons"]} Episodios: {data["number_of_episodes"]}\n'
     for gener in data['genres']:
-        if "-" in gener:
-            gener = gener.replace("-", "_")
+        if "-" in gener["name"]:
+            gener["name"] = gener["name"].replace("-", "_")
 
         if "&" in gener["name"]:
             sub_genes = gener["name"].split("&")
@@ -213,6 +156,7 @@ def posst(folder_path, file_path, update, context):
             msg = f"{msg}#{gener['name']} "
 
     msg = f"{msg}\n<a href='https://www.imdb.com/title/{data['external_ids']['imdb_id']}/'>IMDB</a> - <a href='https://www.themoviedb.org/movie/{data['id']}?language=es'>TMDB</a>"
+    # TODO: Solcinar el errot de el msg "movie/[id]"
     send_message(msg, update)
     
 #                 # imdbID = response["imdb_id"]
@@ -231,8 +175,6 @@ def posst(folder_path, file_path, update, context):
 #                     seasonPoster = temporada["poster_path"]
 
 #                     print(seasonId,seasonDate,seasonEpisodes,seasonName,seasonPoster)
-
-    # print(msg)
 
 
 def get_link(update):
@@ -300,6 +242,8 @@ def load_data(update, is_movie):
         else:
             print("No se encontraron resultados.")
             return None
+        
+        delete_message(msg)
 
     else:
         send_message("Proporciona un enlace valido", update)
@@ -363,3 +307,5 @@ if __name__ == '__main__':
     # tmdb.search_tv_shows()
     # tmdb.search_movies()
     # create_file(f'movie/884605.json')
+
+# TODO: crera carprta data para allmacenar las igs

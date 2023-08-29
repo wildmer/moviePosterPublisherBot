@@ -40,14 +40,12 @@ else:
     print("Sorry, operating system not supported")
     # exit(0)
 
-TOKEN = BOT_TOKEN
-updater = tg.Updater(TOKEN, use_context=True, workers=WORKERS)
-
+updater = tg.Updater(token=BOT_TOKEN, use_context=True, workers=WORKERS)
 bot = updater.bot
 dispatcher = updater.dispatcher
 
 # Load at end to ensure all prev variables have been set
-from bot.modules.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
+from bot.helpers.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
 
 # make sure the regex handler can take extra kwargs
 tg.RegexHandler = CustomRegexHandler

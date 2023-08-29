@@ -12,12 +12,14 @@ class CustomCommandHandler(tg.CommandHandler):
 
     def check_update(self, update):
         if (isinstance(update, Update)
-                and (update.message or update.edited_message and self.allow_edited)):
+            and (update.message or update.edited_message and self.allow_edited)):
             message = update.message or update.edited_message
 
             if message.text and len(message.text) > 1:
                 fst_word = message.text_html.split(None, 1)[0]
-                if len(fst_word) > 1 and any(fst_word.startswith(start) for start in CMD_STARTERS):
+                if len(fst_word) > 1 and any(
+                    fst_word.startswith(start) for start in CMD_STARTERS
+                ):
                     command = fst_word[1:].split('@')
                     command.append(message.bot.username)  # in case the command was sent without a username
                     if self.filters is None:
@@ -27,8 +29,10 @@ class CustomCommandHandler(tg.CommandHandler):
                     else:
                         res = self.filters(message)
 
-                    return res and (command[0].lower() in self.command
-                                    and command[1].lower() == message.bot.username.lower())
+                    return res and (
+                        command[0].lower() in self.command
+                        and command[1].lower() == message.bot.username.lower()
+                    )
 
             return False
 
