@@ -61,10 +61,16 @@ class TheMovieDB:
             return None
 
         for result in response["results"]:
+            if not result.get("release_date"):
+                result["release_date"] = "0000-00-00"
 
-            if result.get("original_title" if search_name == SEARCH_NAME_MOVIE else "original_name") == self.title and (
-                    self.release_date == result.get("first_air_date") or  self.release_date == result.get("release_date") or self.release_date[:4] == result.get("release_date")[:4]
-                    ):
+            if result.get(
+                "original_title" if search_name == SEARCH_NAME_MOVIE else "original_name"
+            ) == self.title and (
+                self.release_date == result.get("first_air_date")
+                or self.release_date == result.get("release_date")
+                or self.release_date[:4] == result.get("release_date")[:4]
+            ):
                 self.ID = result["id"]
                 break
 
@@ -72,10 +78,10 @@ class TheMovieDB:
             return self._get_search_results(search_id=SEARCH_ID_MOVIE if search_name == SEARCH_NAME_MOVIE else SEARCH_ID_TV)
         return None
 
-    def search_movies(self):
+    def search_movies(self)-> dict:
         return self._search(SEARCH_NAME_MOVIE)
 
-    def search_tv_shows(self):
+    def search_tv_shows(self)-> dict:
         return self._search(SEARCH_NAME_TV)
 
 
@@ -87,8 +93,6 @@ def _parse_date(date : str) -> str:
     return fecha_convertida
 
 def scrap_url(url):
-    _infoScrap = {}
-
     headers = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'}
 
     try:
@@ -97,15 +101,13 @@ def scrap_url(url):
         print(e)
         exit()
 
+    _infoScrap = {}
     soup = BeautifulSoup(response.content, "html.parser")
-    
+
     uploader = soup.find('h1').next.next
     title = soup.find('h1').find_all(text=True, recursive=False)[0].strip()
 
     info_movie = soup.find('div', {'class' : 'info_movie'}).find_all("p")
-    # print(title, type(title))
-    # exit()
-
 
     _infoScrap["titulo"] = title
     _infoScrap["uploader"] = uploader
@@ -232,40 +234,6 @@ def posst(folder_path, file_path, update, context):
 
     # print(msg)
 
-def post_info(update, context):
-    args = update.message.text.split(' ')
-    
-    try:
-        link = args[1]
-    except IndexError:
-        link = ''
-    
-    if link != '':
-        LOGGER.info(link)
-    link = link.strip()
-    reply_to = update.message.reply_to_message
-
-    if reply_to is not None:
-        file = None
-        media_array = [reply_to.document, reply_to.video, reply_to.audio, reply_to.photo]
-        for i in media_array:
-            if i is not None:
-                file = i
-                break
-        if file is None:
-            if reply_to.text is not None:
-                reply_text = reply_to.text
-                if is_themoviedb_url(reply_text):
-                    link = reply_text
-        if reply_to.caption is not None:
-            reply_text = reply_to.caption_entities[2]['url']
-            if is_themoviedb_url(reply_text):
-                link = reply_text
-    # print(link)
-    # return
-    folder_path, file_path = link.split("/")[-2:]
-    posst(folder_path, file_path, update, context)
-
 
 def get_link(update):
     args = update.message.text.split(' ')
@@ -288,10 +256,24 @@ def get_link(update):
                 file = i
                 break
         if file is None:
-            reply_text = reply_to.text
-            if is_valid_link(reply_text):
+            if reply_to.text is not None:
+                reply_text = reply_to.text
+                if is_valid_link(reply_text):
+                    link = reply_text
+                if is_themoviedb_url(reply_text):
+                    link = reply_text
+        if reply_to.caption is not None:
+            reply_text = reply_to.caption_entities[2]['url']
+            if is_themoviedb_url(reply_text):
                 link = reply_text
     return link
+
+def post_info(update, context):
+    link = get_link(update)
+
+    folder_path, file_path = link.split("/")[-2:]
+    posst(folder_path, file_path, update, context)
+
 
 def load_data(update, is_movie):
     link = get_link(update)
@@ -305,7 +287,8 @@ def load_data(update, is_movie):
 
         if data_media:
             file_name = download_url(data_scrap['imagen'])
-            send_photo(file_name, update, f'<b>{data_scrap["original_title"]}</b>\n<i>{data_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/{media_type}/{data_media["id"]}">themoviedb</a>')
+            text = f'<b>{data_scrap["original_title"]}</b>\n<i>{data_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/{media_type}/{data_media["id"]}">themoviedb</a>'
+            send_photo(file_name, update, text)
             create_file(f'{media_type}/{data_media["id"]}.json', data_media)
             delete_file(file_name)
 
