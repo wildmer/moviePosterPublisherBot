@@ -2,6 +2,7 @@
 __pycache__/
 log.txt
 config.py
+sample_config.py
 posterNF.py
 a.py
 tv/

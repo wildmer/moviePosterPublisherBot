@@ -131,8 +131,8 @@ def is_valid_link(url: str):
 def is_themoviedb_url(url: str):
     return "themoviedb.org" in url
 
-def posst(folder_path, file_path, update, context):
-    data = read_file(folder_path, file_path)
+def posst(media_type, file_path, update, context):
+    data = read_file(media_type, file_path)
 
     image = download_url(f"{URL_IMAGE}{data['poster_path']}")
     send_photo(image, update)
@@ -155,8 +155,8 @@ def posst(folder_path, file_path, update, context):
         else:
             msg = f"{msg}#{gener['name']} "
 
-    msg = f"{msg}\n<a href='https://www.imdb.com/title/{data['external_ids']['imdb_id']}/'>IMDB</a> - <a href='https://www.themoviedb.org/movie/{data['id']}?language=es'>TMDB</a>"
-    # TODO: Solcinar el errot de el msg "movie/[id]"
+    msg = f"{msg}\n<a href='https://www.imdb.com/title/{data['external_ids']['imdb_id']}/'>IMDB</a> - <a href='https://www.themoviedb.org/{media_type}/{data['id']}?language=es'>TMDB</a>"
+
     send_message(msg, update)
     
 #                 # imdbID = response["imdb_id"]
@@ -213,8 +213,8 @@ def get_link(update):
 def post_info(update, context):
     link = get_link(update)
 
-    folder_path, file_path = link.split("/")[-2:]
-    posst(folder_path, file_path, update, context)
+    media_type, file_path = link.split("/")[-2:]
+    posst(media_type, file_path, update, context)
 
 
 def load_data(update, is_movie):
