@@ -15,8 +15,16 @@ def is_authorised(func):
 
 
 def is_owner(func):
+    """
+    Decorator that checks if the user is the owner before executing the function.
+    Returns False if the user is not the owner.
+    """
     @wraps(func)
     def wrapper(*args, **kwargs):
+        """
+        Inner function that checks if the user is the owner before executing the function.
+        Returns False if the user is not the owner.
+        """
         if args[0].effective_message.from_user.id == OWNER_ID:
             return func(*args, **kwargs)
         else:

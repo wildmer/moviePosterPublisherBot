@@ -57,7 +57,7 @@ def send_photo(file_path, update: Update, text: str = '', parse_mode='HTML'):
             return bot.send_photo(
                 chat_id=ID_CHAT_POSTS,
                 photo=input_file,
-                reply_to_message_id=update.message.message_id,
+                # reply_to_message_id=update.message.message_id,
                 caption=text,
                 parse_mode=parse_mode
             )

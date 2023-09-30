@@ -1,6 +1,6 @@
 import requests
-from urllib.parse import quote_plus
-from bot import ACCESS_TOKEN_AUTH, LANGUAGE, SEARCH_NAME_MOVIE, SEARCH_ID_MOVIE, SEARCH_ID_TV, SEARCH_NAME_TV, URL_THEMOVIEDB
+# from urllib.parse import quote_plus
+from bot import ACCESS_TOKEN_AUTH, LANGUAGE, SEARCH_NAME_MOVIE, SEARCH_ID_MOVIE, SEARCH_ID_TV, SEARCH_NAME_TV, URL_THEMOVIEDB, LOGGER
 
 
 class TheMovieDB:
@@ -15,7 +15,7 @@ class TheMovieDB:
             # Search id
             'append_to_response': 'external_ids',
             # Search name
-            'query': quote_plus(self.title), 'include_adult': 'true',
+            'query': self.title, 'include_adult': 'true',
             # "&primary_release_year=2006&page=1"
             'language': LANGUAGE
         }
@@ -31,6 +31,9 @@ class TheMovieDB:
 
         try:
             response = requests.get(_url, headers=headers, params=payload)
+            LOGGER.info("Se realizo la solicitud: " + _url)
+            LOGGER.info("Datos enviados:")
+            LOGGER.info(payload)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:

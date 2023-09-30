@@ -5,6 +5,7 @@ import math
 import unicodedata
 from typing import List, Optional
 
+
 # import telegram
 import requests
 from bot import *
@@ -28,12 +29,21 @@ from tqdm import tqdm
 # from telegram.ext import Updater
 # from telegram import InputFile
 
-def _parse_date(date : str) -> str:
-    from datetime import datetime
+def parse_date(date_string: str) -> str:
+    """
+    Parses a date string in the format "dd mmm yyyy" and returns it in the format "yyyy-mm-dd".
 
-    fecha_objeto = datetime.strptime(date, "%d %b %Y")
-    fecha_convertida = fecha_objeto.strftime("%Y-%m-%d")
-    return fecha_convertida
+    Args:
+        date_string (str): The date string to be parsed.
+
+    Returns:
+        str: The parsed date string in the format "yyyy-mm-dd".
+    """
+    from datetime import datetime
+    
+    date_object = datetime.strptime(date_string, "%d %b %Y")
+    formatted_date = date_object.strftime("%Y-%m-%d")
+    return formatted_date
 
 def scrap_url(url):
     headers = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'}
@@ -55,9 +65,12 @@ def scrap_url(url):
     _infoScrap["titulo"] = title
     _infoScrap["uploader"] = uploader
     _infoScrap["original_title"] = info_movie[1].find('a').text
+    LOGGER.info(f"Se encontro el original_title {_infoScrap['original_title']}")
+
     _infoScrap["ano"] = info_movie[3].find('a').text
     # print(info_movie[4].find('span').text)
-    _infoScrap["release_date"] = _parse_date(info_movie[4].find('span').text.strip())
+    _infoScrap["release_date"] = parse_date(info_movie[4].find('span').text.strip())
+    # print(parse_date(info_movie[4].find('span').text.strip()))
 
     contenido = soup.find('div', {'class' : 'post-content'})
     
@@ -79,7 +92,6 @@ def scrap_url(url):
 
     return _infoScrap
 
-#
 def create_file(file_path : str, data : str = None):
     # with codecs.open(file_path, "a", "utf-8") as archivo:
     #     archivo.write(data_movie)
@@ -102,6 +114,7 @@ def ping(update, context):
     end_time = int(round(time.time() * 1000))
     edit_message(f'{end_time - start_time} ms', reply)
 
+# TODO: Revisar y havcer que envie los logs segun la fecha
 def send_log(update, context):
     send_file('log.txt', update)
 
@@ -182,8 +195,10 @@ def get_link(update):
 
     try:
         link = args[1]
+        LOGGER.info("Se obtuvo correctamente el enlace!")
     except IndexError:
         link = ''
+        LOGGER.info("No se obtuvo el enlace!")
 
     if link != '':
         LOGGER.info(link)
@@ -191,34 +206,43 @@ def get_link(update):
     reply_to = update.message.reply_to_message
 
     if reply_to is not None:
+        LOGGER.info("Se esta intentando obtener el enlace de un mensaje de respuesta!")
         file = None
-        media_array = [reply_to.document, reply_to.video, reply_to.audio, reply_to.photo]
-        for i in media_array:
-            if i is not None:
-                file = i
+        media_array = [reply_to.document, reply_to.video, reply_to.audio, 
+                    #    reply_to.photo #alparecer siempre esta en el mensaje de respuesta
+                       ]
+        
+        for item in media_array:
+            if item is not None:
+                file = item
+                LOGGER.info("Se encontro que hay un tipo de archivo en la respuesta!")
                 break
+                
         if file is None:
+            LOGGER.info("Se encontro que no hay un tipo de archivo en la respuesta!")
             if reply_to.text is not None:
                 reply_text = reply_to.text
-                if is_valid_link(reply_text):
+                if is_valid_link(reply_text) or is_themoviedb_url(reply_text):
                     link = reply_text
-                if is_themoviedb_url(reply_text):
-                    link = reply_text
+                    LOGGER.info("Se encontro un enlace en el texto!")
+                    
         if reply_to.caption is not None:
             reply_text = reply_to.caption_entities[2]['url']
             if is_themoviedb_url(reply_text):
                 link = reply_text
+                LOGGER.info("Se encontro un enlace en el caption!")
+                
     return link
 
 
 def post_info(update, context):
-    link = get_link(update)  # Asumo que la función get_link() está definida en otra parte del código
+    link = get_link(update)
     
     try:
-        media_type, file_path = link.split("/")[-2:]  # Asumiendo que el enlace tiene al menos dos partes después de dividir por "/"
+        media_type, file_path = link.split("/")[-2:]
         LOGGER.info("Se obtuvo correctamente el tipo de media y el directorio del archivo!")
         
-        posst(media_type, file_path, update, context)  # Asumiendo que la función posst() está definida en otra parte del código
+        posst(media_type, file_path, update, context) 
         
     except IndexError:
         print('Ocurrió un error de índice al dividir el enlace')
@@ -229,6 +253,7 @@ def post_info(update, context):
 
 def load_data(update, is_movie):
     link = get_link(update)
+
     media_type = 'movie' if is_movie else 'tv'
 
     if is_valid_link(link):
