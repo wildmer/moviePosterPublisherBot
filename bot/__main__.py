@@ -12,7 +12,7 @@ from bot import *
 from bot.modules.the_movie_db import TheMovieDB
 from bot.helpers.telegram_helper.decorators import is_authorised, is_owner
 # from telegram.ext.utils.promise import CallbackContext
-from bot.helpers.telegram_helper.msg_utils import delete_message, edit_message, send_file, send_message, send_photo
+from bot.helpers.telegram_helper.msg_utils import delete_message, edit_message, send_file, send_message, send_photo, send_photo_and_reply
 from bs4 import BeautifulSoup
 # from telegram import Message, Chat, Update, Bot, User
 # from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
@@ -53,9 +53,12 @@ def scrap_url(url):
     except requests.exceptions.RequestException as e:
         print(e)
         exit()
+    
+    # Obtener la codificación de la respuesta
+    encoding = response.encoding
 
     _infoScrap = {}
-    soup = BeautifulSoup(response.content, "html.parser")
+    soup = BeautifulSoup(response.content, "html.parser", from_encoding=encoding)
 
     uploader = soup.find('h1').next.next
     title = soup.find('h1').find_all(text=True, recursive=False)[0].strip()
@@ -66,10 +69,15 @@ def scrap_url(url):
     _infoScrap["uploader"] = uploader
     _infoScrap["original_title"] = info_movie[1].find('a').text
     LOGGER.info(f"Se encontro el original_title {_infoScrap['original_title']}")
-
-    _infoScrap["ano"] = info_movie[3].find('a').text
-    # print(info_movie[4].find('span').text)
-    _infoScrap["release_date"] = parse_date(info_movie[4].find('span').text.strip())
+    
+    duration = info_movie[2].find('a') or info_movie[2].find('span')
+    i=0
+    if not "min" in duration.text or not "N/A" in duration.text:
+        i = 1
+    
+    date_movie = info_movie[3-i].find('a') or info_movie[3-i].find('span')
+    _infoScrap["ano"] = date_movie.text
+    _infoScrap["release_date"] = parse_date(info_movie[4-i].find('span').text.strip())
     # print(parse_date(info_movie[4].find('span').text.strip()))
 
     contenido = soup.find('div', {'class' : 'post-content'})
@@ -125,8 +133,10 @@ def download_url(url: str):
     total_size = int(response.headers.get('content-length', 0))
     block_size = 1024
     written = 0
+    
+    file = f"poster/{file_name}"
 
-    with open(file_name, "wb") as f:
+    with open(file, "wb") as f:
         for data in tqdm(response.iter_content(block_size), total=math.ceil(total_size//block_size), unit='KB', unit_scale=True):
             written = written + len(data)
             f.write(data)
@@ -136,7 +146,7 @@ def download_url(url: str):
     else:
         # print("Descarga completada.")
         LOGGER.info(f"{file_name} > Descarga completada.")
-        return file_name
+        return file
     
 def is_valid_link(url: str):
     return HOST in url
@@ -148,7 +158,7 @@ def posst(media_type, file_path, update, context):
     data = read_file(media_type, file_path)
 
     image = download_url(f"{URL_IMAGE}{data['poster_path']}")
-    send_photo(image, update)
+    send_photo_and_reply(image, update)
 
     msg = f"<b>{(data.get('title') or data.get('name'))} ({(data.get('release_date') or data.get('first_air_date'))[:4]})</b>"
     msg = f"{msg}\n<i>{data['tagline']}</i>\n"
@@ -323,12 +333,15 @@ if __name__ == '__main__':
     # LOGGER.info("Successfully loaded modules: ")
     make_folder('tv')
     make_folder('movie')
+    make_folder('poster')
     main()
     # print(read_file('movie', '884605'))
     # posst()
 
     # read_file('tv', '615')
     # tmdb = TheMovieDB("Cars", "2006-06-08")
+    # tmdb = TheMovieDB("O Amor Dá Voltas", "2022-12-22")
+    
     # tmdb.search_movies()
     # print(tmdb.search_movies())
     # tmdb = TheMovieDB("Sex Education", "2019-01-11")

@@ -63,6 +63,20 @@ def send_photo(file_path, update: Update, text: str = '', parse_mode='HTML'):
             )
     except telegram.error.TelegramError as e:
         LOGGER.error(f"Error al enviar foto: {e}")
+        
+def send_photo_and_reply(file_path, update: Update, text: str = '', parse_mode='HTML'):
+    try:
+        with open(file_path, 'rb') as f:
+            input_file = InputFile(f)
+            return bot.send_photo(
+                chat_id=update.message.chat_id,
+                photo=input_file,
+                reply_to_message_id=update.message.message_id,
+                caption=text,
+                parse_mode=parse_mode
+            )
+    except telegram.error.TelegramError as e:
+        LOGGER.error(f"Error al enviar foto: {e}")
 
 
 # def sendFile(bot, update: Update, file):
