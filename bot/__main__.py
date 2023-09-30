@@ -210,11 +210,21 @@ def get_link(update):
                 link = reply_text
     return link
 
-def post_info(update, context):
-    link = get_link(update)
 
-    media_type, file_path = link.split("/")[-2:]
-    posst(media_type, file_path, update, context)
+def post_info(update, context):
+    link = get_link(update)  # Asumo que la función get_link() está definida en otra parte del código
+    
+    try:
+        media_type, file_path = link.split("/")[-2:]  # Asumiendo que el enlace tiene al menos dos partes después de dividir por "/"
+        LOGGER.info("Se obtuvo correctamente el tipo de media y el directorio del archivo!")
+        
+        posst(media_type, file_path, update, context)  # Asumiendo que la función posst() está definida en otra parte del código
+        
+    except IndexError:
+        print('Ocurrió un error de índice al dividir el enlace')
+    except Exception as e:
+        print('Ocurrió una excepción:', e)
+
 
 
 def load_data(update, is_movie):
