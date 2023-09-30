@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-log.txt
+*.txt
 config.py
 sample_config.py
 posterNF.py

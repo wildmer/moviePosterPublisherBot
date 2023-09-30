@@ -1,5 +1,8 @@
 from bot.helpers.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
 import logging
+from logging.handlers import TimedRotatingFileHandler
+
+import datetime
 import os
 import sys
 import time
@@ -8,18 +11,32 @@ import time
 import telegram.ext as tg
 from bot.config import *
 
-if os.path.exists('log.txt'):
-    with open('log.txt', 'r+') as f:
-        f.truncate(0)
+# Configurar el formato del registro
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+logging.basicConfig(format=log_format, level=logging.INFO)
 
-# enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler('log.txt'), logging.StreamHandler()],
-    level=logging.INFO)
+# Obtener la fecha actual como una cadena en el formato 'YYYY-MM-DD'
+current_date = datetime.datetime.now().strftime('%Y-%m-%d')
 
+# Configurar el controlador del archivo de registro para que tenga el nombre de la fecha actual
+log_filename = f'log_{current_date}.txt'
+file_handler = TimedRotatingFileHandler(log_filename, when='midnight', backupCount=7)
+file_handler.setFormatter(logging.Formatter(log_format))
 
+# Agregar el controlador del archivo de registro al sistema de registro
+logging.getLogger('').addHandler(file_handler)
+
+# Ejemplo de cómo usar el registro
+# logger = logging.getLogger(__name__) #recmendado
 LOGGER = logging.getLogger(__name__)
+# logger.info('Este mensaje será registrado en el archivo con el nombre de la fecha actual.')
+
+# # enable logging
+# logging.basicConfig(
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+#     handlers=[logging.FileHandler('log.txt'), logging.StreamHandler()],
+#     level=logging.INFO)
+
 
 # if version < 3.6, stop bot.
 if sys.version_info[0] < 3 or sys.version_info[1] < 6:
