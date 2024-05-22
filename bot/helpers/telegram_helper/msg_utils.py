@@ -1,87 +1,90 @@
-import telegram
-from bot import ID_CHAT, ID_CHAT_POSTS, LOGGER, bot
-from telegram import InputFile
+from bot import ID_CHAT_POSTS, LOGGER, upd_dis
+from telegram import InputFile  # , InlineKeyboardMarkup
 from telegram.message import Message
 from telegram.update import Update
+from telegram.error import TelegramError
 
-def delete_message(message: Message):
+
+def delete_message(message: Message)->bool:
     try:
-        bot.delete_message(
-            chat_id=message.chat.id,
-            message_id=message.message_id
+        return upd_dis.upd_dis.bot.delete_message(
+            chat_id=message.chat.id, message_id=message.message_id
         )
-    except telegram.error.TelegramError as e:
+    except TelegramError as e:
         LOGGER.error(str(e))
+    return False
 
-def send_message(text: str, update: Update, parse_mode='HTML'):
+
+def send_message(text: str, update: Update, parse_mode="HTML"):
     try:
-        return bot.send_message(
+        return upd_dis.bot.send_message(
             chat_id=update.message.chat_id,
             reply_to_message_id=update.message.message_id,
             text=text,
             allow_sending_without_reply=True,
             parse_mode=parse_mode,
-            disable_web_page_preview=True
+            disable_web_page_preview=True,
         )
-    except telegram.error.TelegramError as e:
+    except TelegramError as e:
         LOGGER.error(str(e))
+
 
 def edit_message(text: str, message: Message, reply_markup=None):
     try:
-        bot.edit_message_text(
+        upd_dis.bot.edit_message_text(
             text=text,
             message_id=message.message_id,
             chat_id=message.chat.id,
             reply_markup=reply_markup,
-            parse_mode='HTML'
+            parse_mode="HTML",
         )
-    except telegram.error.TelegramError as e:
+    except TelegramError as e:
         LOGGER.error(str(e))
+
 
 def send_file(file_path, update: Update):
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             input_file = InputFile(f)
-            bot.send_document(
-                chat_id=update.message.chat_id,
-                document=input_file,
-                filename=f.name
+            upd_dis.bot.send_document(
+                chat_id=update.message.chat_id, document=input_file, filename=f.name
             )
-    except telegram.error.TelegramError as e:
-        LOGGER.error(f"Error al enviar documento: {e}")
+    except TelegramError as e:
+        LOGGER.error(f"Error al enviar documento: {str(e)}")
 
-def send_photo(file_path, update: Update, text: str = '', parse_mode='HTML'):
+
+def send_photo(file_path, update: Update, text: str = "", reply=False, parse_mode="HTML"):
+    print(file_path)
+    args = {
+        "chat_id": ID_CHAT_POSTS,
+        "caption": text,
+        "parse_mode": parse_mode,
+    }
+    if reply:
+        args["reply_to_message_id"] = update.message.message_id
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             input_file = InputFile(f)
-            return bot.send_photo(
-                chat_id=ID_CHAT_POSTS,
-                photo=input_file,
-                # reply_to_message_id=update.message.message_id,
-                caption=text,
-                parse_mode=parse_mode
-            )
-    except telegram.error.TelegramError as e:
+            args["photo"] = input_file
+            return upd_dis.bot.send_photo(**args)
+    except TelegramError as e:
         LOGGER.error(f"Error al enviar foto: {e}")
-        
-def send_photo_and_reply(file_path, update: Update, text: str = '', parse_mode='HTML'):
-    try:
-        with open(file_path, 'rb') as f:
-            input_file = InputFile(f)
-            return bot.send_photo(
-                chat_id=update.message.chat_id,
-                photo=input_file,
-                reply_to_message_id=update.message.message_id,
-                caption=text,
-                parse_mode=parse_mode
-            )
-    except telegram.error.TelegramError as e:
-        LOGGER.error(f"Error al enviar foto: {e}")
+
+
+
+# def sendMarkup(text: str, update: Update, reply_markup: InlineKeyboardMarkup):
+#     return upd_dis.bot.send_message(update.message.chat_id,
+#                             reply_to_message_id=update.message.message_id,
+#                             text=text,
+#                             reply_markup=reply_markup,
+#                             allow_sending_without_reply=True,
+#                             parse_mode='HTMl')
+
 
 
 # def sendFile(bot, update: Update, file):
 #     with open(file, 'rb') as f:
-#         return bot.send_document(
+#         return upd_dis.bot.send_document(
 #             document=f,
 #             filename=f.name,
 #             reply_to_message_id=update.message.message_id,
@@ -95,7 +98,7 @@ def send_photo_and_reply(file_path, update: Update, text: str = '', parse_mode='
 # from time import sleep
 # def sendMessage(text: str, bot, message: Message):
 #     try:
-#         return bot.send_message(message.chat_id,
+#         return upd_dis.bot.send_message(message.chat_id,
 #                             reply_to_message_id=message.message_id,
 #                             text=text, allow_sending_without_reply=True, parse_mode='HTMl', disable_web_page_preview=True)
 #     except RetryAfter as r:
@@ -108,7 +111,7 @@ def send_photo_and_reply(file_path, update: Update, text: str = '', parse_mode='
 
 # def editMessage(text: str, message: Message, reply_markup=None):
 #     try:
-#         bot.edit_message_text(
+#         upd_dis.bot.edit_message_text(
 #             text=text,
 #             message_id=message.message_id,
 #             chat_id=message.chat.id,

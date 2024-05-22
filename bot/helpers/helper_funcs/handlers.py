@@ -1,7 +1,7 @@
 import telegram.ext as tg
 from telegram import Update
 
-CMD_STARTERS = ('/', '!')
+CMD_STARTERS = ("/", "!")
 
 
 class CustomCommandHandler(tg.CommandHandler):
@@ -11,8 +11,9 @@ class CustomCommandHandler(tg.CommandHandler):
         super().__init__(command, callback, **kwargs)
 
     def check_update(self, update):
-        if (isinstance(update, Update)
-                and (update.message or update.edited_message and self.allow_edited)):
+        if isinstance(update, Update) and (
+            update.message or update.edited_message and self.allow_edited
+        ):
             message = update.message or update.edited_message
 
             if message.text and len(message.text) > 1:
@@ -20,9 +21,10 @@ class CustomCommandHandler(tg.CommandHandler):
                 if len(fst_word) > 1 and any(
                     fst_word.startswith(start) for start in CMD_STARTERS
                 ):
-                    command = fst_word[1:].split('@')
-                    # in case the command was sent without a username
-                    command.append(message.bot.username)
+                    command = fst_word[1:].split("@")
+                    command.append(
+                        message.bot.username
+                    )  # in case the command was sent without a username
                     if self.filters is None:
                         res = True
                     elif isinstance(self.filters, list):

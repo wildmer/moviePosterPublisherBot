@@ -3,28 +3,28 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 import datetime
-import os
 import sys
-import time
 # pip install -r requirements.txt
 
 import telegram.ext as tg
-from bot.config import *
+
+from bot.config import *  # noqa: F403
+from bot.config import BOT_TOKEN, WORKERS, ALLOW_EXCL
 
 # Configurar el formato del registro
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
 
 # Obtener la fecha actual como una cadena en el formato 'YYYY-MM-DD'
-current_date = datetime.datetime.now().strftime('%Y-%m-%d')
+current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
 # Configurar el controlador del archivo de registro para que tenga el nombre de la fecha actual
-log_filename = f'log_{current_date}.txt'
-file_handler = TimedRotatingFileHandler(log_filename, when='midnight', backupCount=7)
+log_filename = f"log_{current_date}.txt"
+file_handler = TimedRotatingFileHandler(log_filename, when="midnight", backupCount=7)
 file_handler.setFormatter(logging.Formatter(log_format))
 
 # Agregar el controlador del archivo de registro al sistema de registro
-logging.getLogger('').addHandler(file_handler)
+logging.getLogger("").addHandler(file_handler)
 
 # Ejemplo de cómo usar el registro
 # logger = logging.getLogger(__name__) #recmendado
@@ -41,28 +41,32 @@ LOGGER = logging.getLogger(__name__)
 # if version < 3.6, stop bot.
 if sys.version_info[0] < 3 or sys.version_info[1] < 6:
     LOGGER.error(
-        "You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting.")
+        "You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting."
+    )
     quit(1)
 
 if sys.platform.startswith("win"):
     # windows
     # print('windows')
-    LOGGER.info('SO > windows')
+    LOGGER.info("SO > windows")
 elif sys.platform.startswith("darwin"):
     # MacOs
     # print('MacOs')
-    LOGGER.info('SO > MacOs')
+    LOGGER.info("SO > MacOs")
 elif sys.platform.startswith("linux"):
     # linux
     # print('linux')
-    LOGGER.info('SO > linux')
+    LOGGER.info("SO > linux")
 else:
     print("Sorry, operating system not supported")
     # exit(0)
 
-updater = tg.Updater(token=BOT_TOKEN, use_context=True, workers=WORKERS)
-bot = updater.bot
-dispatcher = updater.dispatcher
+updater = tg.Updater(token=BOT_TOKEN, use_context=True, workers=WORKERS, request_kwargs={'read_timeout': 20, 'connect_timeout': 15})
+
+# bot = updater.bot
+upd_dis = updater.dispatcher
+# job_queue = updater.job_queue
+# dispatcher = updater.dispatcher
 
 # Load at end to ensure all prev variables have been set
 
@@ -70,5 +74,5 @@ dispatcher = updater.dispatcher
 tg.RegexHandler = CustomRegexHandler
 
 
-if ALLOW_EXCL:
-    tg.CommandHandler = CustomCommandHandler
+# if not ALLOW_EXCL:
+# tg.CommandHandler = CustomCommandHandler
