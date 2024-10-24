@@ -1,7 +1,7 @@
 import requests
 import json
-
 # from urllib.parse import quote_plus
+
 from bot import (
     ACCESS_TOKEN_AUTH,
     LANGUAGE,
@@ -20,9 +20,13 @@ class TheMovieDB:
         self.release_date = release_date
         self.id: int | None = None
         self.language: str = LANGUAGE[0]
+        self.get_resutls: bool = False
 
     def setId(self, id):
         self.id = id
+
+    def setResults(self, get_resutls):
+        self.get_resutls = get_resutls
 
     def setLanguage(self, language):
         self.language = language
@@ -85,6 +89,8 @@ class TheMovieDB:
                 f"No es una {search_name.lower()} o está escrita de manera incorrecta"
             )
             return {}
+        if self.get_resutls:
+            return {"data": response["results"]}
 
         for result in response["results"]:
             if not result.get("release_date"):
@@ -114,7 +120,9 @@ class TheMovieDB:
         if not self.id and search_name == SEARCH_NAME_TV:
             if response["results"][0]["original_name"]:
                 self.id = response["results"][0]["id"]
-                LOGGER.info(f"Se encontro el ID: {self.id}, el la primera coincidencia, ya que la validaciona anterior no fue exitosa.")
+                LOGGER.info(
+                    f"Se encontro el ID: {self.id}, el la primera coincidencia, ya que la validaciona anterior no fue exitosa."
+                )
 
         if self.id:
             return self._get_search_results(
