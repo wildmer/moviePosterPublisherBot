@@ -1,8 +1,9 @@
 from bot import ID_CHAT_POSTS, LOGGER, upd_dis
-from telegram import InputFile, InlineKeyboardMarkup
+from telegram import ChatAction, InputFile, InlineKeyboardMarkup
 from telegram.message import Message
 from telegram.update import Update
 from telegram.error import TelegramError
+# from typing import Union
 
 
 def delete_message(message: Message) -> bool:
@@ -15,20 +16,26 @@ def delete_message(message: Message) -> bool:
     return False
 
 
-def send_message(text: str, update: Update, parse_mode="HTML"):
-    if not update.message:
-        ch = ID_CHAT_POSTS
-    else:
-        ch = update.message.chat_id
+def send_message(
+    text: str, update: Update, parse_mode="HTML", reply_to_message: bool = False
+):
+    if update.message:
+        ID_CHAT_POSTS = update.message.chat_id
+
+    update.message.chat.send_action(ChatAction.TYPING)
+    args = {
+        "chat_id": ID_CHAT_POSTS,
+        "text": text,
+        "parse_mode": parse_mode,
+        "disable_web_page_preview": True,
+        "allow_sending_without_reply": True,
+        "disable_notification": True,
+    }
+    if reply_to_message:
+        args["reply_to_message_id"] = update.message.message_id
+
     try:
-        return upd_dis.bot.send_message(
-            chat_id=ch,
-            # reply_to_message_id=update.message.message_id,
-            text=text,
-            allow_sending_without_reply=True,
-            parse_mode=parse_mode,
-            disable_web_page_preview=True,
-        )
+        return upd_dis.bot.send_message(**args)
     except TelegramError as e:
         LOGGER.error(str(e))
 
@@ -47,6 +54,7 @@ def edit_message(text: str, message: Message, reply_markup=None):
 
 
 def send_file(file_path, update: Update):
+    update.message.chat.send_action(ChatAction.UPLOAD_DOCUMENT)
     try:
         with open(file_path, "rb") as f:
             input_file = InputFile(f)
@@ -61,11 +69,16 @@ def send_photo(
     file_path,
     update: Update,
     text: str = "",
-    reply=False,
+    # chat_id: Union[int, str] = 0,
+    reply_to_message=False,
     parse_mode="HTML",
     reply_markup=None,
 ):
-    print(file_path)
+    # update.message.chat.send_action(ChatAction.UPLOAD_PHOTO)
+
+    # if chat_id:
+    #     ID_CHAT_POSTS = chat_id
+
     args = {
         "chat_id": ID_CHAT_POSTS,
         "caption": text,
@@ -73,7 +86,7 @@ def send_photo(
         "allow_sending_without_reply": True,
         "reply_markup": reply_markup,
     }
-    if reply:
+    if reply_to_message:
         args["reply_to_message_id"] = update.message.message_id
     try:
         with open(file_path, "rb") as f:
@@ -81,7 +94,7 @@ def send_photo(
             args["photo"] = input_file
             return upd_dis.bot.send_photo(**args)
     except TelegramError as e:
-        LOGGER.error(f"Error al enviar foto: {e}")
+        LOGGER.error(f"Error al enviar foto: {str(e)}")
 
 
 # def edit_message

@@ -6,6 +6,7 @@ import datetime
 import sys
 # pip install -r requirements.txt
 
+from telegram import __version__ as lver  # noqa: F401
 import telegram.ext as tg
 
 from bot.config import *  # noqa: F403
@@ -20,7 +21,9 @@ current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
 # Configurar el controlador del archivo de registro para que tenga el nombre de la fecha actual
 log_filename = f"log_{current_date}.txt"
-file_handler = TimedRotatingFileHandler(log_filename, when="midnight", backupCount=7)
+file_handler = TimedRotatingFileHandler(
+    log_filename, when="midnight", backupCount=7, encoding="utf-8"
+)
 file_handler.setFormatter(logging.Formatter(log_format))
 
 # Agregar el controlador del archivo de registro al sistema de registro
@@ -39,6 +42,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 # if version < 3.6, stop bot.
+python_version = f"{sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}"
 if sys.version_info[0] < 3 or sys.version_info[1] < 6:
     LOGGER.error(
         "You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting."
@@ -61,7 +65,12 @@ else:
     print("Sorry, operating system not supported")
     # exit(0)
 
-updater = tg.Updater(token=BOT_TOKEN, use_context=True, workers=WORKERS, request_kwargs={'read_timeout': 20, 'connect_timeout': 15})
+updater = tg.Updater(
+    token=BOT_TOKEN,
+    use_context=True,
+    workers=WORKERS,  # , base_url=BASE_URL, base_file_url=BASE_FILE_URL
+    request_kwargs={'read_timeout': 20, 'connect_timeout': 15}
+)
 
 # bot = updater.bot
 upd_dis = updater.dispatcher

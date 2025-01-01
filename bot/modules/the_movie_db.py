@@ -1,34 +1,30 @@
-import requests
 import json
+import time
+import requests  # type: ignore
+from bot import (ACCESS_TOKEN_AUTH, LANGUAGE, LOGGER, SEARCH_ID_MOVIE,
+                 SEARCH_ID_TV, SEARCH_NAME_MOVIE, SEARCH_NAME_TV,
+                 URL_THEMOVIEDB)
+
 # from urllib.parse import quote_plus
-
-from bot import (
-    ACCESS_TOKEN_AUTH,
-    LANGUAGE,
-    SEARCH_NAME_MOVIE,
-    SEARCH_ID_MOVIE,
-    SEARCH_ID_TV,
-    SEARCH_NAME_TV,
-    URL_THEMOVIEDB,
-    LOGGER,
-)
-
 
 class TheMovieDB:
     def __init__(self, title: str, release_date: str) -> None:
         self.title = title
         self.release_date = release_date
         self.id: int | None = None
-        self.language: str = LANGUAGE[0]
+        self.language: int = 0
         self.get_resutls: bool = False
 
     def setId(self, id):
         self.id = id
 
-    def setResults(self, get_resutls):
+    def setGetResults(self, get_resutls):
         self.get_resutls = get_resutls
 
-    def setLanguage(self, language):
+    def setLanguage(self, language: int) -> None:
+        size = len(LANGUAGE)
+        if language < 0 or language >= size:
+            raise Exception(f"El idioma {language} no es valido")
         self.language = language
 
     def exist_overview(self, overview: str) -> bool:
@@ -48,7 +44,7 @@ class TheMovieDB:
             "query": self.title,
             "include_adult": "true",
             # "&primary_release_year=2006&page=1"
-            "language": self.language,
+            "language": LANGUAGE[self.language],
         }
         _url = f"{URL_THEMOVIEDB}{search_name or search_id}"
 
@@ -64,18 +60,24 @@ class TheMovieDB:
 
         try:
             response = requests.get(_url, headers=headers, params=payload)
-            print(_url)
             LOGGER.info("Se realizo la solicitud: " + _url)
             LOGGER.info("Datos enviados:")
             LOGGER.info(json.dumps(payload, ensure_ascii=False, indent=4))
-            response.raise_for_status()
+            LOGGER.info(response.raise_for_status())
+            print(response.status_code)
 
             if (
                 search_id
                 and not season
                 and not self.exist_overview(response.json().get("overview"))
             ):
-                self.setLanguage(LANGUAGE[1])
+                LOGGER.info(
+                    f"La descripción no existe en el idioma {LANGUAGE[self.language]}, se intentará con el siguiente idioma."
+                )
+                # se realizara una espera de 5 segundos para evitar el bloqueo de la API
+                time.sleep(5)
+                self.setLanguage(self.language + 1)
+                # en caso de que siga presentando el mismo problema, se debera de eliminara el parametro de idioma
                 return self._get_search_results(search_name, search_id)
             return response.json()
         except requests.exceptions.RequestException as e:

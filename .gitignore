@@ -14,3 +14,5 @@ bot/helpers/telegram_helper/button_build.py
 log_2024-05-20.txt.2024-05-20
 bot/helpers/telegram_helper/telegraph_helper.py
 bot/modules/manager_files.py
+*.json
+*.env

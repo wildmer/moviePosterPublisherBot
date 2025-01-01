@@ -1,61 +1,40 @@
 # import codecs
 import json
 import math
-
 # import os
-import unicodedata
-
+# import unicodedata
 # from typing import List, Optional
 from pathlib import Path
+from time import sleep, time
 
 # import telegram
-import requests
+import requests  # type:ignore
+from bs4 import BeautifulSoup  # type:ignore
+from telegram import (  # ReplyKeyboardMarkup,; ReplyKeyboardRemove,; Update,; InlineKeyboardButton,; ParseMode
+    InlineKeyboardMarkup, InputMediaPhoto)
+from telegram.ext import (  # Application,; ContextTypes,; ConversationHandler,; MessageHandler,; filters,
+    CallbackQueryHandler, CommandHandler)
+from tqdm import tqdm  # type:ignore
 
 # from bot import *
 from bot import LOGGER, upd_dis, updater
-from bot.config import HOST, URL_IMAGE, NO_IMAGE
-from bot.modules.the_movie_db import TheMovieDB
-from bot.helpers.telegram_helper.decorators import is_authorised, is_owner  # type:ignore
-
+from bot.config import HOST, NO_IMAGE, URL_IMAGE
+from bot.helpers.helper_funcs.filters import CustomFilters
 # from telegram.ext.utils.promise import CallbackContext
-from bot.helpers.telegram_helper.button_build import *
-from bot.helpers.telegram_helper.msg_utils import (
-    delete_message,
-    edit_message,
-    send_file,
-    send_message,
-    send_photo,
-    sendMarkup,
-)
-from bs4 import BeautifulSoup
+from bot.helpers.telegram_helper.button_build import ButtonMaker
+from bot.helpers.telegram_helper.decorators import is_authorised
+from bot.helpers.telegram_helper.msg_utils import (delete_message,
+                                                   edit_message, send_file,
+                                                   send_message, send_photo,
+                                                   sendMarkup)
+from bot.modules.the_movie_db import TheMovieDB
 
 # from telegram import Message, Chat, Update, Bot, User
 
 # from telegram.error import Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
 
-from telegram import (
-    # ReplyKeyboardMarkup,
-    # ReplyKeyboardRemove,
-    # Update,
-    # InlineKeyboardButton,
-    # ParseMode
-    InlineKeyboardMarkup,
-    InputMediaPhoto,
-)
 
-from telegram.ext import (
-    # Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    # ContextTypes,
-    # ConversationHandler,
-    # MessageHandler,
-    # filters,
-)
 
-from tqdm import tqdm  # type:ignore
-from time import time, sleep
-from bot.helpers.helper_funcs.filters import CustomFilters
 
 tmdb = None
 
@@ -100,58 +79,73 @@ def scrap_url(url) -> dict:
     # Obtener la codificación de la respuesta
     encoding = response.encoding
 
-    _infoScrap = {}
+    # _infoScrap = {}
     soup = BeautifulSoup(response.content, "html.parser", from_encoding=encoding)
 
-    uploader = soup.find("h1").next.next  # type:ignore
-    title = soup.find("h1").find_all(text=True, recursive=False)[0].strip()  # type:ignore
+    ts = soup.find("div", {"class": "post-ratings"})
+    post_id = ts["data-nonce"]
 
-    info_movie = soup.find("div", {"class": "info_movie"}).find_all("p")  # type:ignore
+    url = f"https://www.latinomegahd.net/wp-json/wp/v2/posts/{post_id}"
+    try:
+        response = requests.get(url, headers=headers)
+    except requests.exceptions.RequestException as e:
+        print(e)
+        exit()
 
-    _infoScrap["titulo"] = title
-    _infoScrap["uploader"] = uploader
-    _infoScrap["original_title"] = info_movie[1].find("a").text
-    LOGGER.info(f"Se encontro el original_title {_infoScrap['original_title']}")
+    # save the response as a json file
+    data = json.loads(response.text[1:])  # el primer caracter generar un error
 
-    duration = info_movie[2].find("a") or info_movie[2].find("span")
-    i = 0
-    if not ("min" in duration.text or "N/A" in duration.text):
-        LOGGER.info("Se restara 1")
-        i = 1
+    return data
+    # uploader = soup.find("h1").find("i").text
+    # title = soup.find("h1").find_all(text=True, recursive=False)[0]
 
-    date_movie = info_movie[3 - i].find("a") or info_movie[3 - i].find("span")
-    _infoScrap["ano"] = date_movie.text
+    # info_movie = soup.find("div", {"class": "info_movie"}).find_all("p")  # type:ignore
 
-    date_get = info_movie[4 - i].find("span")
-    if "N/A" in duration.text:
-        date_get = ""
-    else:
-        date_get = parse_date(date_get.text.strip())
+    # _infoScrap["titulo"] = title
+    # _infoScrap["uploader"] = uploader
+    # tl = info_movie[1].find("a") or info_movie[1].find("span")
+    # _infoScrap["original_title"] = tl.text
+    # LOGGER.info(f"Se encontro el original_title {_infoScrap['original_title']}")
 
-    _infoScrap["release_date"] = date_get
-    # print(parse_date(info_movie[4].find('span').text.strip()))
+    # duration = info_movie[2].find("a") or info_movie[2].find("span")
+    # i = 0
+    # if not ("min" in duration.text or "N/A" in duration.text):
+    #     LOGGER.info("Se restara 1")
+    #     i = 1
 
-    contenido = soup.find("div", {"class": "post-content"})
+    # date_movie = info_movie[3 - i].find("a") or info_movie[3 - i].find("span")
+    # _infoScrap["ano"] = date_movie.text
 
-    img_scrap = contenido.find("img", {"class": "alignnone size-medium"}, src=True)  # type:ignore
-    if not img_scrap:
-        # else:
-        img_scrap = contenido.find("img", {"class": "alignnone"}, src=True)  # type:ignore
-    _infoScrap["imagen"] = img_scrap["src"]  # type:ignore
+    # date_get = info_movie[4 - i].find("span")
+    # if "N/A" in duration.text:
+    #     date_get = ""
+    # else:
+    #     date_get = parse_date(date_get.text.strip())
 
-    _infoScrap["title"] = contenido.find("h5").next.next  # type:ignore
+    # _infoScrap["release_date"] = date_get
+    # # print(parse_date(info_movie[4].find('span').text.strip()))
 
-    allP = contenido.find_all("p", limit=5)  # type:ignore
+    # contenido = soup.find("div", {"class": "post-content"})
 
-    _infoScrap["sipnosis"] = allP[2].text
+    # img_scrap = contenido.find("img", {"class": "alignnone size-medium"}, src=True)  # type:ignore
+    # if not img_scrap:
+    #     # else:
+    #     img_scrap = contenido.find("img", {"class": "alignnone"}, src=True)  # type:ignore
+    # _infoScrap["imagen"] = img_scrap["src"]  # type:ignore
 
-    datosTecnicos = unicodedata.normalize(
-        "NFKD", allP[4].text
-    )  # Delete '\xa0' from string
+    # _infoScrap["title"] = contenido.find("h5").next.next  # type:ignore
 
-    _infoScrap["datosTecnicos"] = datosTecnicos
+    # allP = contenido.find_all("p", limit=5)  # type:ignore
 
-    return _infoScrap
+    # _infoScrap["sipnosis"] = allP[2].text
+
+    # datosTecnicos = unicodedata.normalize(
+    #     "NFKD", allP[4].text
+    # )  # Delete '\xa0' from string
+
+    # _infoScrap["datosTecnicos"] = datosTecnicos
+
+    # return _infoScrap
 
 
 def create_file(file_path: str, data: str = ""):
@@ -269,7 +263,7 @@ def posst(media_type: str, file_path: str, update, context):
     data = read_file(media_type, file_path)
 
     image = download_url(f"{data['poster_path']}")
-    send_photo(image, update)
+    send_photo(image, update, reply_to_message=True)
     # send_photo(image, update, reply=True)
 
     title: str = str(data.get("title") or data.get("name"))
@@ -285,6 +279,9 @@ def posst(media_type: str, file_path: str, update, context):
     for gener in data["genres"]:
         if "-" in gener["name"]:
             gener["name"] = gener["name"].replace("-", "_")
+        
+        if " " in gener["name"]:
+            gener["name"] = gener["name"].replace(" ", "_")
 
         if "&" in gener["name"]:
             sub_genes = gener["name"].split("&")
@@ -295,7 +292,7 @@ def posst(media_type: str, file_path: str, update, context):
 
     msg = f"{msg}\n<a href='https://www.imdb.com/title/{data['external_ids']['imdb_id']}/'>IMDB</a> - <a href='https://www.themoviedb.org/{media_type}/{data['id']}?language=es'>TMDB</a>"
 
-    send_message(msg, update)
+    send_message(msg, update, reply_to_message=True)
 
     if media_type == "tv":
         tmdb = TheMovieDB(title, date)
@@ -343,6 +340,20 @@ def posst(media_type: str, file_path: str, update, context):
 #                     seasonPoster = temporada["poster_path"]
 
 #                     print(seasonId,seasonDate,seasonEpisodes,seasonName,seasonPoster)
+
+def post(media_type: str, file_path: str, update, context):
+    data = read_file(media_type, file_path)
+
+    # url_image = f"{URL_IMAGE}{data['poster_path']}"
+    id_themoviedb = data["id"]
+    original_title = str(data.get("original_title"))
+    tilte = str(data.get("title") or data.get("name"))
+    year = data.get("release_date") or data.get("first_air_date", [])[:4]
+
+    msg = f'<b>{original_title} ({year})</b>\n<i>{tilte}</i>\n<a href="https://www.themoviedb.org/{media_type}/{id_themoviedb}">themoviedb</a>'
+
+    image = download_url(f"{data['poster_path']}")
+    send_photo(image, update, msg)
 
 
 def get_link(update) -> str:
@@ -418,6 +429,10 @@ def load_data(update, is_movie):
     if is_valid_link(link):
         msg = send_message(f"<b>Scrapeando:</b> <code>{link}</code>", update)
         data_scrap = scrap_url(link)
+        print(data_scrap)
+        _id = data_scrap["id"]
+        tile = data_scrap["title"]["rendered"]
+        return
         tmdb = TheMovieDB(data_scrap["original_title"], data_scrap["release_date"])
 
         data_media = tmdb.search_movies() if is_movie else tmdb.search_tv_shows()
@@ -468,10 +483,9 @@ def start(update, context):
     send_message("waked up😏😏😏", update)
 
 
-
 list_results = []
-pages = 10
-STATUS_LIMIT = 5
+pages = 0
+STATUS_LIMIT = 25
 COUNT = 0
 PAGE_NO = 1
 
@@ -483,54 +497,70 @@ def send_page_no(update, context):
     # buttons.sbutton("Movie", "movie")
     # buttons.sbutton("TV Show", "tv")
     buttons.sbutton("Previous", "pre")
+    buttons.sbutton("Close", "clo")
     buttons.sbutton("Next", "nex")
     buttons.sbutton("Select", "sel")
     reply_markup = InlineKeyboardMarkup(
-        buttons.build_menu(2), footer_buttons=buttons.build_menu(1)
+        buttons.build_menu(3), footer_buttons=buttons.build_menu(1)
     )
 
     return reply_markup
-
-
 
 
 def search_movie(update, context):
     args: list[str] = update.message.text.split(" ")
     title = " ".join(args[1:])
 
-    global tmdb_t, list_results, COUNT, PAGE_NO
+    global tmdb_t, list_results, COUNT, PAGE_NO, pages
     tmdb_t = TheMovieDB(title, "")
-    tmdb_t.setResults(True)
+    tmdb_t.setGetResults(True)
     data_media = tmdb_t.search_movies()
-
-
 
     if data_media:
         list_results = data_media["data"]
+        pages = len(list_results)
         dt_p = list_results[PAGE_NO - 1]
         mk = send_page_no(update, context)
         file_name = download_url(f'{dt_p["poster_path"]}')
+        title = dt_p["original_title"]
+        year = dt_p["release_date"]
 
-        sendMarkup(file_name, f'{dt_p["original_title"]}', update, mk)
+        # sendMarkup(file_name, f'{dt_p["original_title"]}', update, mk)
+        send_photo(file_name, update, f"{title} ({year})", reply_markup=mk)
+        if not PAGE_NO >= pages:
+            LOGGER.info(f"Se reliza pre descarga de la imagen {PAGE_NO + 1}")
+            download_url(f'{list_results[PAGE_NO]["poster_path"]}')
 
     else:
         print("No se encontraron resultados.")
         return None
 
 
-
-
-
 def select(update, context):
+    global COUNT, PAGE_NO, list_results
     query = update.callback_query
     query.answer()
     tmdb_t.setId(list_results[PAGE_NO - 1]["id"])
-    tmdb_t.setResults(False)
+    tmdb_t.setGetResults(False)
     data_media = tmdb_t.search_movies()
     create_file(f'movie/{data_media["id"]}.json', data_media)
 
-    posst("movie", data_media["id"], update, context)
+    post("movie", data_media["id"], update, context)
+    #reset values global
+    list_results = []
+    # pages = 0
+    # STATUS_LIMIT = 25
+    COUNT = 0
+    PAGE_NO = 1
+
     # query.edit_message_text(text=f"Selected option: {query.data}")
+    return 0
+
+
+def close(update, context):
+    query = update.callback_query
+    query.answer()
+    query.delete_message()
     return 0
 
 
@@ -538,6 +568,9 @@ def flip(update, context):
     query = update.callback_query
     query.answer()
     global COUNT, PAGE_NO, list_results
+    print(f"COUNT: {COUNT} PAGE_NO: {PAGE_NO}")
+    print(f"pages: {pages} STATUS_LIMIT: {STATUS_LIMIT}")
+    print(f"list_results: {len(list_results)}")
     if query.data == "nex":
         if PAGE_NO == pages:
             COUNT = 0
@@ -612,14 +645,17 @@ def main():
     next_handler = CallbackQueryHandler(flip, pattern="nex", run_async=True)
     previous_handler = CallbackQueryHandler(flip, pattern="pre", run_async=True)
     select_handler = CallbackQueryHandler(select, pattern="sel", run_async=True)
+    close_handler = CallbackQueryHandler(close, pattern="clo", run_async=True)
 
     upd_dis.add_handler(next_handler)
     upd_dis.add_handler(previous_handler)
     upd_dis.add_handler(select_handler)
+    upd_dis.add_handler(close_handler)
     #
     # IGNORE_PENDING_REQUESTS = False
     LOGGER.info("Using long polling.")
-    updater.start_polling(timeout=15, read_latency=4)
+    updater.start_polling(read_latency=4)
+    # updater.start_polling(timeout=15, read_latency=4)
     # updater.start_polling(drop_pending_updates=IGNORE_PENDING_REQUESTS)
 
     LOGGER.info("Bot Started!")
