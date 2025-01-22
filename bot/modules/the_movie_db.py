@@ -1,9 +1,7 @@
 import json
 import time
 import requests  # type: ignore
-from bot import (ACCESS_TOKEN_AUTH, LANGUAGE, LOGGER, SEARCH_ID_MOVIE,
-                 SEARCH_ID_TV, SEARCH_NAME_MOVIE, SEARCH_NAME_TV,
-                 URL_THEMOVIEDB)
+from bot import LOGGER, config
 
 # from urllib.parse import quote_plus
 
@@ -18,11 +16,11 @@ class TheMovieDB:
     def setId(self, id):
         self.id = id
 
-    def setGetResults(self, get_resutls):
+    def setGetResults(self, get_resutls:bool) -> None:
         self.get_resutls = get_resutls
 
     def setLanguage(self, language: int) -> None:
-        size = len(LANGUAGE)
+        size = len(config.LANGUAGE)
         if language < 0 or language >= size:
             raise Exception(f"El idioma {language} no es valido")
         self.language = language
@@ -35,7 +33,7 @@ class TheMovieDB:
     ) -> dict:
         headers = {
             "Content-Type": "application/json",
-            "Authorization": ACCESS_TOKEN_AUTH,
+            "Authorization": config.ACCESS_TOKEN_AUTH,
         }
         payload = {
             # Search id
@@ -44,9 +42,9 @@ class TheMovieDB:
             "query": self.title,
             "include_adult": "true",
             # "&primary_release_year=2006&page=1"
-            "language": LANGUAGE[self.language],
+            "language": config.LANGUAGE[self.language],
         }
-        _url = f"{URL_THEMOVIEDB}{search_name or search_id}"
+        _url = f"{config.URL_THEMOVIEDB}{search_name or search_id}"
 
         if search_name:
             payload.pop("append_to_response")
@@ -72,7 +70,7 @@ class TheMovieDB:
                 and not self.exist_overview(response.json().get("overview"))
             ):
                 LOGGER.info(
-                    f"La descripción no existe en el idioma {LANGUAGE[self.language]}, se intentará con el siguiente idioma."
+                    f"La descripción no existe en el idioma {config.LANGUAGE[self.language]}, se intentará con el siguiente idioma."
                 )
                 # se realizara una espera de 5 segundos para evitar el bloqueo de la API
                 time.sleep(5)
@@ -100,7 +98,7 @@ class TheMovieDB:
 
             get_title = result.get(
                 "original_title"
-                if search_name == SEARCH_NAME_MOVIE
+                if search_name == config.SEARCH_NAME_MOVIE
                 else "original_name"
             )
             print(
@@ -119,7 +117,7 @@ class TheMovieDB:
                 self.id = result["id"]
                 LOGGER.info(f"Se encontro el ID: {self.id}")
                 break
-        if not self.id and search_name == SEARCH_NAME_TV:
+        if not self.id and search_name == config.SEARCH_NAME_TV:
             if response["results"][0]["original_name"]:
                 self.id = response["results"][0]["id"]
                 LOGGER.info(
@@ -128,17 +126,17 @@ class TheMovieDB:
 
         if self.id:
             return self._get_search_results(
-                search_id=SEARCH_ID_MOVIE
-                if search_name == SEARCH_NAME_MOVIE
-                else SEARCH_ID_TV
+                search_id=config.SEARCH_ID_MOVIE
+                if search_name == config.SEARCH_NAME_MOVIE
+                else config.SEARCH_ID_TV
             )
         return {}
 
     def search_movies(self) -> dict:
-        return self._search(SEARCH_NAME_MOVIE)
+        return self._search(config.SEARCH_NAME_MOVIE)
 
     def search_tv_shows(self) -> dict:
-        return self._search(SEARCH_NAME_TV)
+        return self._search(config.SEARCH_NAME_TV)
 
     def search_season_tv_shows(self, season: int):
-        return self._get_search_results(search_id=SEARCH_ID_TV, season=season)
+        return self._get_search_results(search_id=config.SEARCH_ID_TV, season=season)

@@ -1,87 +1,60 @@
-from bot.helpers.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
 import logging
 from logging.handlers import TimedRotatingFileHandler
+# from bot.helpers.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
+from bot.config import Config
 
 import datetime
 import sys
 # pip install -r requirements.txt
 
-from telegram import __version__ as lver  # noqa: F401
-import telegram.ext as tg
+config = Config()
 
-from bot.config import *  # noqa: F403
-from bot.config import BOT_TOKEN, WORKERS, ALLOW_EXCL
+if not config.LOGS_PATH.exists():
+    config.LOGS_PATH.mkdir()
 
 # Configurar el formato del registro
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-logging.basicConfig(format=log_format, level=logging.INFO)
 
-# Obtener la fecha actual como una cadena en el formato 'YYYY-MM-DD'
+# Configurar el logger principal
+# logging.getLogger("pyrogram").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
+logger.setLevel(
+    logging.DEBUG
+)  # Configura el nivel más bajo para capturar todos los niveles en el logger
+
+# Configurar el manejador para la consola
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)  # Nivel para la consola
+console_handler.setFormatter(logging.Formatter(log_format))
+
+# Configurar el manejador para el archivo
 current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-
-# Configurar el controlador del archivo de registro para que tenga el nombre de la fecha actual
-log_filename = f"log_{current_date}.txt"
+log_filename = config.LOGS_PATH / f"log_{current_date}.log"
 file_handler = TimedRotatingFileHandler(
     log_filename, when="midnight", backupCount=7, encoding="utf-8"
 )
+file_handler.setLevel(logging.DEBUG)  # Nivel para el archivo
 file_handler.setFormatter(logging.Formatter(log_format))
 
-# Agregar el controlador del archivo de registro al sistema de registro
-logging.getLogger("").addHandler(file_handler)
+# Agregar los manejadores al logger
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
 
-# Ejemplo de cómo usar el registro
-# logger = logging.getLogger(__name__) #recmendado
-LOGGER = logging.getLogger(__name__)
-# logger.info('Este mensaje será registrado en el archivo con el nombre de la fecha actual.')
+# # Ejemplo de cómo usar el logger
+# logger.debug("Este es un mensaje de depuración")
+# logger.info("Este es un mensaje informativo")
+# logger.warning("Este es un mensaje de advertencia")
+# logger.error("Este es un mensaje de error")
+# logger.critical("Este es un mensaje crítico")
+LOGGER = logger
 
-# # enable logging
-# logging.basicConfig(
-#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-#     handlers=[logging.FileHandler('log.txt'), logging.StreamHandler()],
-#     level=logging.INFO)
-
-
-# if version < 3.6, stop bot.
-python_version = f"{sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}"
-if sys.version_info[0] < 3 or sys.version_info[1] < 6:
-    LOGGER.error(
-        "You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting."
-    )
-    quit(1)
-
-if sys.platform.startswith("win"):
-    # windows
-    # print('windows')
-    LOGGER.info("SO > windows")
-elif sys.platform.startswith("darwin"):
-    # MacOs
-    # print('MacOs')
-    LOGGER.info("SO > MacOs")
-elif sys.platform.startswith("linux"):
-    # linux
-    # print('linux')
-    LOGGER.info("SO > linux")
+system_operative = f"SO > {config.getOS()}"
+LOGGER.info(system_operative)
+if config.is_valid_version_python():
+    LOGGER.info("Python version: %s", config.PYTHON_VERSION)
 else:
-    print("Sorry, operating system not supported")
-    # exit(0)
-
-updater = tg.Updater(
-    token=BOT_TOKEN,
-    use_context=True,
-    workers=WORKERS,  # , base_url=BASE_URL, base_file_url=BASE_FILE_URL
-    request_kwargs={'read_timeout': 20, 'connect_timeout': 15}
-)
-
-# bot = updater.bot
-upd_dis = updater.dispatcher
-# job_queue = updater.job_queue
-# dispatcher = updater.dispatcher
-
-# Load at end to ensure all prev variables have been set
-
-# make sure the regex handler can take extra kwargs
-tg.RegexHandler = CustomRegexHandler
-
-
-# if not ALLOW_EXCL:
-# tg.CommandHandler = CustomCommandHandler
+    LOGGER.error("Python version must be at least 3.8")
+    # LOGGER.error(
+    #     "You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting."
+    # )
+    exit() or quit(1)

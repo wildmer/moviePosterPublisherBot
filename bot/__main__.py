@@ -10,23 +10,34 @@ from time import sleep, time
 # import telegram
 import requests  # type:ignore
 from bs4 import BeautifulSoup  # type:ignore
-from telegram import (  # ReplyKeyboardMarkup,; ReplyKeyboardRemove,; Update,; InlineKeyboardButton,; ParseMode
-    InlineKeyboardMarkup, InputMediaPhoto)
-from telegram.ext import (  # Application,; ContextTypes,; ConversationHandler,; MessageHandler,; filters,
-    CallbackQueryHandler, CommandHandler)
+# from telegram import (  # ReplyKeyboardMarkup,; ReplyKeyboardRemove,; Update,; InlineKeyboardButton,; ParseMode
+#     InlineKeyboardMarkup, InputMediaPhoto)
+from telegram import Update, InlineKeyboardMarkup, InputMediaPhoto
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    CommandHandler,
+    # ConversationHandler,; MessageHandler,; filters,
+    CallbackQueryHandler,
+    PicklePersistence,
+)
 from tqdm import tqdm  # type:ignore
 
 # from bot import *
-from bot import LOGGER, upd_dis, updater
-from bot.config import HOST, NO_IMAGE, URL_IMAGE
-from bot.helpers.helper_funcs.filters import CustomFilters
+from bot import LOGGER, config, log_filename
+# from bot.config import HOST, NO_IMAGE, URL_IMAGE
+# from bot.helpers.helper_funcs.filters import CustomFilters
 # from telegram.ext.utils.promise import CallbackContext
 from bot.helpers.telegram_helper.button_build import ButtonMaker
-from bot.helpers.telegram_helper.decorators import is_authorised
-from bot.helpers.telegram_helper.msg_utils import (delete_message,
-                                                   edit_message, send_file,
-                                                   send_message, send_photo,
-                                                   sendMarkup)
+# from bot.helpers.telegram_helper.decorators import is_authorised
+from bot.helpers.telegram_helper.msg_utils import (
+    delete_message,
+    edit_message,
+    send_message,
+    send_photo,
+    send_file,
+    # sendMarkup,
+)
 from bot.modules.the_movie_db import TheMovieDB
 
 # from telegram import Message, Chat, Update, Bot, User
@@ -183,7 +194,7 @@ def make_folder(folder_path: str) -> None:
     Path(folder_path).mkdir(parents=True, exist_ok=True)  # Crea la carpeta si no existe
 
 
-def ping(update, context):
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Function to measure the response time of the bot.
 
@@ -195,21 +206,35 @@ def ping(update, context):
         None
     """
     start_time = int(round(time() * 1000))
-    reply = send_message("Starting Ping", update)
+
+    reply = await send_message(update, context, "Pong!")
     end_time = int(round(time() * 1000))
-    edit_message(f"{end_time - start_time} ms", reply)
+    # edit_message(f"{end_time - start_time} ms", reply)
+    await edit_message(context, reply, f"{end_time - start_time} ms")
 
 
 # TODO: Revisar y havcer que envie los logs segun la fecha
-def send_log(update, context):
-    send_file("log.txt", update)
+async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Function to send the log file to the user.
+
+    Args:
+        update: The update object containing information about the incoming message.
+        context: The context object containing additional information.
+
+    Returns:
+        None
+    """
+    log_file = log_filename
+    await send_file(update, context, log_file)
+
 
 
 def download_url(url: str | None, is_poster: bool = True):
     if url is None:
-        return NO_IMAGE
+        return config.NO_IMAGE
     if is_poster:
-        url = URL_IMAGE + url
+        url = config.URL_IMAGE + url
     file_name = url.split("/")[-1].replace("%2B", " ")
 
     if "i.imgur.com/" in url:
@@ -252,7 +277,7 @@ def download_url(url: str | None, is_poster: bool = True):
 
 
 def is_valid_link(url: str):
-    return HOST in url
+    return config.HOST in url
 
 
 def is_themoviedb_url(url: str):
@@ -341,7 +366,7 @@ def posst(media_type: str, file_path: str, update, context):
 
 #                     print(seasonId,seasonDate,seasonEpisodes,seasonName,seasonPoster)
 
-def post(media_type: str, file_path: str, update, context):
+async def post(media_type: str, file_path: str, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     data = read_file(media_type, file_path)
 
     # url_image = f"{URL_IMAGE}{data['poster_path']}"
@@ -353,7 +378,7 @@ def post(media_type: str, file_path: str, update, context):
     msg = f'<b>{original_title} ({year})</b>\n<i>{tilte}</i>\n<a href="https://www.themoviedb.org/{media_type}/{id_themoviedb}">themoviedb</a>'
 
     image = download_url(f"{data['poster_path']}")
-    send_photo(image, update, msg)
+    await send_photo(update, context, image, msg, parse_mode="HTML", chat_id=config.ID_CHAT_POSTS)
 
 
 def get_link(update) -> str:
@@ -468,19 +493,19 @@ def load_data(update, is_movie):
         send_message("Proporciona un enlace valido", update)
 
 
-@is_authorised
+# @is_authorised
 def post_movie(update, context):
     load_data(update, True)
 
 
-@is_authorised
+# @is_authorised
 def post_tv(update, context):
     load_data(update, False)
 
 
-# @run_async
-def start(update, context):
-    send_message("waked up😏😏😏", update)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = await send_message(update, context, "waked up😏😏😏")
+
 
 
 list_results = []
@@ -501,13 +526,13 @@ def send_page_no(update, context):
     buttons.sbutton("Next", "nex")
     buttons.sbutton("Select", "sel")
     reply_markup = InlineKeyboardMarkup(
-        buttons.build_menu(3), footer_buttons=buttons.build_menu(1)
+        buttons.build_menu(3)
     )
 
     return reply_markup
 
 
-def search_movie(update, context):
+async def search_movie(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args: list[str] = update.message.text.split(" ")
     title = " ".join(args[1:])
 
@@ -526,7 +551,9 @@ def search_movie(update, context):
         year = dt_p["release_date"]
 
         # sendMarkup(file_name, f'{dt_p["original_title"]}', update, mk)
-        send_photo(file_name, update, f"{title} ({year})", reply_markup=mk)
+        # send_photo(file_name, update, f"{title} ({year})", reply_markup=mk)
+        await send_photo(update, context, file_name, f"{title} ({year})", reply_markup=mk)
+
         if not PAGE_NO >= pages:
             LOGGER.info(f"Se reliza pre descarga de la imagen {PAGE_NO + 1}")
             download_url(f'{list_results[PAGE_NO]["poster_path"]}')
@@ -536,16 +563,16 @@ def search_movie(update, context):
         return None
 
 
-def select(update, context):
+async def select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     global COUNT, PAGE_NO, list_results
     query = update.callback_query
-    query.answer()
+    await query.answer()
     tmdb_t.setId(list_results[PAGE_NO - 1]["id"])
     tmdb_t.setGetResults(False)
     data_media = tmdb_t.search_movies()
     create_file(f'movie/{data_media["id"]}.json', data_media)
 
-    post("movie", data_media["id"], update, context)
+    await post("movie", data_media["id"], update, context)
     #reset values global
     list_results = []
     # pages = 0
@@ -557,14 +584,16 @@ def select(update, context):
     return 0
 
 
-def close(update, context):
-    query = update.callback_query
-    query.answer()
-    query.delete_message()
-    return 0
+# async def close(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+#     query = update.callback_query
+#     await query.answer()
+#     await query.delete_message()
+#     return 0
 
 
-def flip(update, context):
+
+# def flip(update, context):
+async def flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     query.answer()
     global COUNT, PAGE_NO, list_results
@@ -585,6 +614,9 @@ def flip(update, context):
         else:
             COUNT -= STATUS_LIMIT
             PAGE_NO -= 1
+    elif query.data == "clo":
+        await query.delete_message()
+        return 0
     # message_utils.update_all_messages()
     # update this mensage
     # query.edit_message_text(text=f"Selected option: {query.data} {COUNT} {PAGE_NO}")
@@ -592,14 +624,14 @@ def flip(update, context):
     mk = send_page_no(update, context)
     dt_p = list_results[PAGE_NO - 1]
     if dt_p["poster_path"] is None:
-        file_name = NO_IMAGE
+        file_name = config.NO_IMAGE
     else:
         file_name = download_url(f'{dt_p["poster_path"]}')
 
     tl = dt_p["original_title"]
     year = dt_p["release_date"]
 
-    query.edit_message_media(
+    await query.edit_message_media(
         media=InputMediaPhoto(
             media=Path(file_name).open("rb"),
             caption=f"{tl} ({year})",
@@ -619,48 +651,156 @@ def flip(update, context):
     return 0
 
 
+STATUS_LIMIT = 25
+
+
+class MovieSearchHandler:
+    def __init__(self):
+        self.list_results = []
+        self.page_no = 1
+        self.pages = 0
+        self.count = 0
+        self.tmdb_t = None
+
+    def create_buttons(self):
+        buttons = ButtonMaker()
+        buttons.sbutton("Previous", "pre")
+        buttons.sbutton("Close", "clo")
+        buttons.sbutton("Next", "nex")
+        buttons.sbutton("Select", "sel")
+        return InlineKeyboardMarkup(buttons.build_menu(3))
+
+    async def search_movie(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        args: list[str] = update.message.text.split(" ")
+        title = " ".join(args[1:])
+        self.tmdb_t = TheMovieDB(title, "")
+        self.tmdb_t.setGetResults(True)
+        data_media = self.tmdb_t.search_movies()
+
+        if data_media:
+            print(json.dumps(data_media, ensure_ascii=False, indent=4))
+            self.list_results = data_media["data"]
+            self.pages = len(self.list_results)
+            return await self.show_page(update, context, self.page_no)
+        else:
+            await update.message.reply_text("No se encontraron resultados.")
+            return None
+
+    async def show_page(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, page_no: int, is_update: bool = False
+    ):
+        try:
+            self.page_no = page_no
+            dt_p = self.list_results[page_no - 1]
+            if dt_p["poster_path"] is None:
+                print("No se encontro poster")
+                print(Path(config.NO_IMAGE).exists())
+                file_name = config.NO_IMAGE
+            else:
+                file_name = (
+                    download_url(dt_p["poster_path"])
+                    if dt_p["poster_path"]
+                    else config.NO_IMAGE
+                )
+            title = dt_p["original_title"]
+            year = dt_p["release_date"]
+
+            if not is_update:
+                reply_markup = self.create_buttons()
+                await send_photo(
+                    update,
+                    context,
+                    file_name,
+                    f"{title} ({year})",
+                    reply_markup=reply_markup,
+                )
+            else:
+                query = update.callback_query
+                await query.answer()
+                await query.edit_message_media(
+                    media=InputMediaPhoto(
+                        media=Path(file_name).open("rb"),
+                        caption=f"{title} ({year})",
+                    ),
+                    reply_markup=self.create_buttons(),
+                )
+            if not self.page_no >= self.pages:
+                if self.list_results[self.page_no]["poster_path"] is not None:
+                    LOGGER.info(f"Se reliza pre descarga de la imagen {self.page_no + 1}")
+                    download_url(self.list_results[self.page_no]["poster_path"])
+        except Exception as e:
+            LOGGER.error(f"Error mostrando la página: {e}")
+
+    async def flip(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        if query.data == "nex":
+            if self.page_no == self.pages:
+                self.page_no = 1
+                self.count = 0
+            else:
+                self.count += STATUS_LIMIT
+                self.page_no += 1
+            # self.page_no = self.page_no + 1 if self.page_no < self.pages else 1
+        elif query.data == "pre":
+            if self.page_no == 1:
+                self.count = STATUS_LIMIT * (self.pages - 1)
+                self.page_no = self.pages
+            else:
+                self.count -= STATUS_LIMIT
+                self.page_no -= 1
+            # self.page_no = self.page_no - 1 if self.page_no > 1 else self.pages
+        elif query.data == "clo":
+            await query.delete_message()
+            return
+
+        await self.show_page(update, context, self.page_no, is_update=True)
+
+    async def select(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        selected_movie = self.list_results[self.page_no - 1]
+        self.tmdb_t.setId(selected_movie["id"])
+        self.tmdb_t.setGetResults(False)
+        data_media = self.tmdb_t.search_movies()
+
+        create_file(f'movie/{data_media["id"]}.json', data_media)
+        await post("movie", data_media["id"], update, context)
+
+
 def main():
-    start_handler = CommandHandler("start", start, pass_args=True, run_async=True)
-    post_movie_handler = CommandHandler("movie", post_movie)
-    post_tv_handler = CommandHandler("show", post_tv)
-    post_info_handler = CommandHandler("info", post_info)
-    ping_handler = CommandHandler(
-        "ping",
-        ping,
-        filters=CustomFilters.authorized_chat | CustomFilters.authorized_user,
-        run_async=True,
-    )
-    send_log_handler = CommandHandler("log", send_log)
-    # start_handler = CommandHandler("start", start, pass_args=True)
+    """Start the bot."""
+    # Create the Updater and pass it your bot's token.
+    persistence = PicklePersistence(filepath="conversationbot")
 
-    # upd_dis = updater.dispatcher
+    # Create the Application and pass it your bot's token.
+    # application = (
+    #     Application.builder()
+    #     .token(config["BOT"]["TOKEN"])
+    #     .persistence(persistence)
+    #     .build()
+    # )
+    app = ApplicationBuilder().token(config.BOT_TOKEN).persistence(persistence).build()
 
-    upd_dis.add_handler(start_handler)
-    upd_dis.add_handler(post_movie_handler)
-    upd_dis.add_handler(post_tv_handler)
-    upd_dis.add_handler(post_info_handler)
-    upd_dis.add_handler(ping_handler)
-    upd_dis.add_handler(send_log_handler)
-    upd_dis.add_handler(CommandHandler("search", search_movie, pass_args=True))
-    next_handler = CallbackQueryHandler(flip, pattern="nex", run_async=True)
-    previous_handler = CallbackQueryHandler(flip, pattern="pre", run_async=True)
-    select_handler = CallbackQueryHandler(select, pattern="sel", run_async=True)
-    close_handler = CallbackQueryHandler(close, pattern="clo", run_async=True)
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("movie", post_movie))
+    app.add_handler(CommandHandler("show", post_tv))
+    app.add_handler(CommandHandler("info", post_info))
+    app.add_handler(CommandHandler("ping", ping))
+    app.add_handler(CommandHandler("log", send_log))
 
-    upd_dis.add_handler(next_handler)
-    upd_dis.add_handler(previous_handler)
-    upd_dis.add_handler(select_handler)
-    upd_dis.add_handler(close_handler)
-    #
-    # IGNORE_PENDING_REQUESTS = False
-    LOGGER.info("Using long polling.")
-    updater.start_polling(read_latency=4)
-    # updater.start_polling(timeout=15, read_latency=4)
-    # updater.start_polling(drop_pending_updates=IGNORE_PENDING_REQUESTS)
+    movie_handler = MovieSearchHandler()
+    app.add_handler(CommandHandler("search", movie_handler.search_movie))
+    app.add_handler(CallbackQueryHandler(movie_handler.flip, pattern="^(nex|pre|clo)$"))
+    app.add_handler(CallbackQueryHandler(movie_handler.select, pattern="^sel$"))
 
+    # Start the Bot
     LOGGER.info("Bot Started!")
-
-    updater.idle()
+    
+    app.run_polling()
 
 
 if __name__ == "__main__":
