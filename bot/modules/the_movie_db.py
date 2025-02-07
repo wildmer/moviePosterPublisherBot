@@ -11,13 +11,14 @@ class TheMovieDB:
         self.release_date = release_date
         self.id: int | None = None
         self.language: int = 0
-        self.get_resutls: bool = False
+        self.get_results: bool = False
 
     def setId(self, id):
         self.id = id
 
-    def setGetResults(self, get_resutls:bool) -> None:
-        self.get_resutls = get_resutls
+    def setGetResults(self, get_results:bool) -> None:
+        """Set the value of get_results, if True, the method will return the results of the search, if False, it will return the details of the search"""
+        self.get_results = get_results
 
     def setLanguage(self, language: int) -> None:
         size = len(config.LANGUAGE)
@@ -89,7 +90,7 @@ class TheMovieDB:
                 f"No es una {search_name.lower()} o está escrita de manera incorrecta"
             )
             return {}
-        if self.get_resutls:
+        if self.get_results:
             return {"data": response["results"]}
 
         for result in response["results"]:

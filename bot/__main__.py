@@ -371,7 +371,7 @@ async def post(media_type: str, file_path: str, update: Update, context: Context
 
     # url_image = f"{URL_IMAGE}{data['poster_path']}"
     id_themoviedb = data["id"]
-    original_title = str(data.get("original_title"))
+    original_title = str(data.get("original_title") or data.get("original_name"))
     tilte = str(data.get("title") or data.get("name"))
     year = data.get("release_date") or data.get("first_air_date", [])[:4]
 
@@ -661,6 +661,14 @@ class MovieSearchHandler:
         self.pages = 0
         self.count = 0
         self.tmdb_t = None
+        self.type_media = "movie"
+
+    async def change(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if self.type_media == "movie":
+            self.type_media = "tv"
+        else:
+            self.type_media = "movie"
+        await update.message.reply_text(f"Se ha cambiado a {self.type_media}")
 
     def create_buttons(self):
         buttons = ButtonMaker()
@@ -677,7 +685,10 @@ class MovieSearchHandler:
         title = " ".join(args[1:])
         self.tmdb_t = TheMovieDB(title, "")
         self.tmdb_t.setGetResults(True)
-        data_media = self.tmdb_t.search_movies()
+        if self.type_media == "tv":
+            data_media = self.tmdb_t.search_tv_shows()
+        else:
+            data_media = self.tmdb_t.search_movies()
 
         if data_media:
             print(json.dumps(data_media, ensure_ascii=False, indent=4))
@@ -704,8 +715,12 @@ class MovieSearchHandler:
                     if dt_p["poster_path"]
                     else config.NO_IMAGE
                 )
-            title = dt_p["original_title"]
-            year = dt_p["release_date"]
+            if self.type_media == "tv":
+                title = dt_p["original_name"]
+                year = dt_p["first_air_date"]
+            else:
+                title = dt_p["original_title"]
+                year = dt_p["release_date"]
 
             if not is_update:
                 reply_markup = self.create_buttons()
@@ -765,10 +780,17 @@ class MovieSearchHandler:
         selected_movie = self.list_results[self.page_no - 1]
         self.tmdb_t.setId(selected_movie["id"])
         self.tmdb_t.setGetResults(False)
-        data_media = self.tmdb_t.search_movies()
+        if self.type_media == "tv":
+            data_media = self.tmdb_t.search_tv_shows()
 
-        create_file(f'movie/{data_media["id"]}.json', data_media)
-        await post("movie", data_media["id"], update, context)
+            create_file(f'tv/{data_media["id"]}.json', data_media)
+            await post("tv", data_media["id"], update, context)
+            # print season for season in data_media["seasons"]
+        else:
+            data_media = self.tmdb_t.search_movies()
+
+            create_file(f'movie/{data_media["id"]}.json', data_media)
+            await post("movie", data_media["id"], update, context)
 
 
 def main():
@@ -793,6 +815,7 @@ def main():
     app.add_handler(CommandHandler("log", send_log))
 
     movie_handler = MovieSearchHandler()
+    app.add_handler(CommandHandler("change", movie_handler.change))
     app.add_handler(CommandHandler("search", movie_handler.search_movie))
     app.add_handler(CallbackQueryHandler(movie_handler.flip, pattern="^(nex|pre|clo)$"))
     app.add_handler(CallbackQueryHandler(movie_handler.select, pattern="^sel$"))
