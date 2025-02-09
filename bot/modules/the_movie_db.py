@@ -1,9 +1,12 @@
 import json
 import time
-import requests  # type: ignore
+
+import requests
+
 from bot import LOGGER, config
 
 # from urllib.parse import quote_plus
+
 
 class TheMovieDB:
     def __init__(self, title: str, release_date: str) -> None:
@@ -16,7 +19,7 @@ class TheMovieDB:
     def setId(self, id):
         self.id = id
 
-    def setGetResults(self, get_results:bool) -> None:
+    def setGetResults(self, get_results: bool) -> None:
         """Set the value of get_results, if True, the method will return the results of the search, if False, it will return the details of the search"""
         self.get_results = get_results
 
