@@ -1,6 +1,7 @@
 # import codecs
 import json
 import math
+
 # import os
 # import unicodedata
 # from typing import List, Optional
@@ -10,25 +11,28 @@ from time import sleep, time
 # import telegram
 import requests  # type:ignore
 from bs4 import BeautifulSoup  # type:ignore
+
 # from telegram import (  # ReplyKeyboardMarkup,; ReplyKeyboardRemove,; Update,; InlineKeyboardButton,; ParseMode
 #     InlineKeyboardMarkup, InputMediaPhoto)
-from telegram import Update, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import InlineKeyboardMarkup, InputMediaPhoto, Update
 from telegram.ext import (
     ApplicationBuilder,
-    ContextTypes,
-    CommandHandler,
     # ConversationHandler,; MessageHandler,; filters,
     CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
     PicklePersistence,
 )
 from tqdm import tqdm  # type:ignore
 
 # from bot import *
 from bot import LOGGER, config, log_filename
+
 # from bot.config import HOST, NO_IMAGE, URL_IMAGE
 # from bot.helpers.helper_funcs.filters import CustomFilters
 # from telegram.ext.utils.promise import CallbackContext
 from bot.helpers.telegram_helper.button_build import ButtonMaker
+
 # from bot.helpers.telegram_helper.decorators import is_authorised
 from bot.helpers.telegram_helper.msg_utils import (
     delete_message,
@@ -43,8 +47,6 @@ from bot.modules.the_movie_db import TheMovieDB
 # from telegram import Message, Chat, Update, Bot, User
 
 # from telegram.error import Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
-
-
 
 
 tmdb = None
