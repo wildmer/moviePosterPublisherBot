@@ -64,15 +64,36 @@ async def send_message(
         LOGGER.error(str(e))
 
 
-async def send_file(update, context, file_path):
+async def send_file(
+    update,
+    context: ContextTypes.DEFAULT_TYPE,
+    file_path,
+    chat_id: int | str | None = None,
+    reply_to_message_id: int | None = None,
+    caption: str | None = None,
+):
+    if not chat_id:
+        chat_id = update.effective_chat.id
+
     await context.bot.send_chat_action(
-        chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_DOCUMENT
+        chat_id=chat_id, action=ChatAction.UPLOAD_DOCUMENT
     )
+    if isinstance(file_path, str):
+        return await context.bot.send_document(
+                    chat_id=chat_id,
+                    document=file_path,
+                    reply_to_message_id=reply_to_message_id,
+                    caption=caption,
+                )
+
     try:
         with open(file_path, "rb") as f:
             input_file = InputFile(f)
             return await context.bot.send_document(
-                chat_id=update.effective_chat.id, document=input_file, filename=f.name
+                chat_id=chat_id,
+                document=input_file,
+                filename=f.name,
+                reply_to_message_id=reply_to_message_id,
             )
     except Exception as e:
         LOGGER.error(f"Error al enviar documento: {str(e)}")
