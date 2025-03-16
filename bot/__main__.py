@@ -306,7 +306,7 @@ def posst(media_type: str, file_path: str, update, context):
     for gener in data["genres"]:
         if "-" in gener["name"]:
             gener["name"] = gener["name"].replace("-", "_")
-        
+
         if " " in gener["name"]:
             gener["name"] = gener["name"].replace(" ", "_")
 
@@ -652,6 +652,99 @@ async def flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return 0
 
+send_chat_id = 0
+send_message_id = 0
+hash = ""
+
+async def get_info_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global send_chat_id, send_message_id, hash
+    send_chat_id = update.message.reply_to_message.chat_id
+    send_message_id = update.message.reply_to_message.message_id
+    text = update.message.reply_to_message.text
+    if "latinomegahd" in str(text):
+        url = text.split("\n")[0]
+        path =url.split("/")[3]
+        # data = scrap_url(text)
+        print(path)
+        # hasattr
+
+        import zlib
+        # hash =
+        hash = f"#{hex(zlib.crc32(b'path') & 0xFFFFFFFF)}"
+    pass
+
+files_ids = []
+files_list = []
+async def save_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global files_ids, files_list
+    if update.message.reply_to_message.document is None:
+        await send_message(update, context, "No se ha encontrado un archivo")
+    file_unique_id = update.message.reply_to_message.document.file_unique_id
+    file_id = update.message.reply_to_message.document.file_id
+    file_name = update.message.reply_to_message.document.file_name
+    file_caption = update.message.reply_to_message.caption
+    file_size = update.message.reply_to_message.document.file_size
+
+    if not file_caption:
+        file_caption = ""
+
+    my_data = {
+        "file_unique_id": file_unique_id,
+        "file_id": file_id,
+        "file_name": file_name,
+        "file_caption": file_caption,
+        "file_size": file_size,
+        "file_size_MB": file_size/1024/1024
+    }
+
+    if file_unique_id not in files_ids:
+        files_ids.append(file_unique_id)
+        files_list.append(my_data)
+        # print(files_list)
+
+async def show_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global files_list
+    msg = ''
+    size_list = len(files_list)
+    file_size = 0
+    file_size_MB = 0
+    msg = f"{size_list} archivos guardados"
+    for file in files_list:
+        print(file["file_name"])
+        print(file["file_id"])
+        print(file["file_unique_id"])
+        file_size += file["file_size"]
+        file_size_MB += file["file_size_MB"]
+        msg = f"{msg}\n{file['file_name']}"
+    msg = f"{msg}\n\nTamaño total: {file_size} bytes\nor {round(file_size_MB, 2)} MB"
+    await send_message(update, context, msg)
+
+async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global files_list, send_chat_id, send_message_id, hash
+    file_size = 0
+    file_size_MB = 0
+    for file in files_list:
+        file_size += file["file_size"]
+        file_size_MB += file["file_size_MB"]
+        text = f"{hash}\n{file["file_caption"]}"
+        await send_file(
+            update,
+            context,
+            file["file_id"],
+            chat_id=send_chat_id,
+            reply_to_message_id=send_message_id,
+            caption=text,
+        )
+        sleep(4)
+    await send_message(update, context, f"{hash}\nSe han enviado {len(files_list)} archivos con un tamaño total: {file_size} bytes\nor {round(file_size_MB, 2)} MB")
+
+
+async def clean_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global files_list, files_ids
+    files_list = []
+    files_ids = []
+    await send_message(update, context, "Se ha limpiado la lista de archivos")
+
 
 STATUS_LIMIT = 25
 
@@ -795,6 +888,7 @@ class MovieSearchHandler:
             await post("movie", data_media["id"], update, context)
 
 
+
 def main():
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
@@ -815,6 +909,11 @@ def main():
     app.add_handler(CommandHandler("info", post_info))
     app.add_handler(CommandHandler("ping", ping))
     app.add_handler(CommandHandler("log", send_log))
+    app.add_handler(CommandHandler("i", get_info_message))
+    app.add_handler(CommandHandler("save", save_files))
+    app.add_handler(CommandHandler("list", show_list_files))
+    app.add_handler(CommandHandler("send", send_list_files))
+    app.add_handler(CommandHandler("clean", clean_list_files))
 
     movie_handler = MovieSearchHandler()
     app.add_handler(CommandHandler("change", movie_handler.change))
@@ -824,7 +923,7 @@ def main():
 
     # Start the Bot
     LOGGER.info("Bot Started!")
-    
+
     app.run_polling()
 
 
@@ -864,3 +963,4 @@ if __name__ == "__main__":
     # create_file(f'movie/884605.json')
 
 # TODO: CRear boton para cerrar el bot enviar los logs
+
