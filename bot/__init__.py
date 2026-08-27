@@ -1,13 +1,7 @@
-import datetime
-import logging
 import sys
 
-# from logging.handlers import TimedRotatingFileHandler
-from bot.core.logger_config import configure_logger
-
-# from bot.helpers.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
 from bot.config import Config
-# pip install -r requirements.txt
+from bot.core.logger_config import configure_logger
 
 config = Config()
 
@@ -16,6 +10,7 @@ log_filename = "log.log"
 
 system_operative = f"SO > {config.getOS()}"
 LOGGER.info(system_operative)
+
 if config.is_valid_version_python():
     LOGGER.info("Python version: %s", config.PYTHON_VERSION)
 else:
@@ -23,4 +18,4 @@ else:
     # LOGGER.error(
     #     "You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting."
     # )
-    exit() or quit(1)
+    sys.exit() or sys.quit(1)
