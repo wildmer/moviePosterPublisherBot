@@ -1,10 +1,10 @@
+import datetime
 import logging
+import sys
 from logging.handlers import TimedRotatingFileHandler
+
 # from bot.helpers.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
 from bot.config import Config
-
-import datetime
-import sys
 # pip install -r requirements.txt
 
 config = Config()
