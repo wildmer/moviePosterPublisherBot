@@ -15,9 +15,8 @@ from bs4 import BeautifulSoup  # type:ignore
 # from telegram import (  # ReplyKeyboardMarkup,; ReplyKeyboardRemove,; Update,; InlineKeyboardButton,; ParseMode
 #     InlineKeyboardMarkup, InputMediaPhoto)
 from telegram import InlineKeyboardMarkup, InputMediaPhoto, Update
-from telegram.ext import (
+from telegram.ext import (  # ConversationHandler,; MessageHandler,; filters,
     ApplicationBuilder,
-    # ConversationHandler,; MessageHandler,; filters,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
@@ -34,19 +33,29 @@ from bot import LOGGER, config, log_filename
 from bot.helpers.telegram_helper.button_build import ButtonMaker
 
 # from bot.helpers.telegram_helper.decorators import is_authorised
-from bot.helpers.telegram_helper.msg_utils import (
+from bot.helpers.telegram_helper.msg_utils import (  # sendMarkup,
     delete_message,
     edit_message,
+    send_file,
     send_message,
     send_photo,
-    send_file,
-    # sendMarkup,
 )
 from bot.modules.the_movie_db import TheMovieDB
 
 # from telegram import Message, Chat, Update, Bot, User
 
 # from telegram.error import Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
+
+
+def escape_markdown(text: str, version: int = 2) -> str:
+    if version == 1:
+        to_escape = r"_`["
+    elif version == 2:
+        to_escape = r"_*[]()~`>#+-=|{}.!"
+    else:
+        raise ValueError("version must be 1 or 2")
+
+    return "".join(["\\" + c if c in to_escape else c for c in text])
 
 
 tmdb = None
@@ -231,7 +240,6 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_file(update, context, log_file)
 
 
-
 def download_url(url: str | None, is_poster: bool = True):
     if url is None:
         return config.NO_IMAGE
@@ -302,7 +310,7 @@ def posst(media_type: str, file_path: str, update, context):
     if data.get("runtime"):
         msg = f"{msg}\n{data['runtime']} min\n"
     if data.get("number_of_episodes"):
-        msg = f'{msg}\nTemporadas: {data["number_of_seasons"]} Episodios: {data["number_of_episodes"]}\n'
+        msg = f"{msg}\nTemporadas: {data['number_of_seasons']} Episodios: {data['number_of_episodes']}\n"
     for gener in data["genres"]:
         if "-" in gener["name"]:
             gener["name"] = gener["name"].replace("-", "_")
@@ -331,7 +339,7 @@ def posst(media_type: str, file_path: str, update, context):
             season_image = download_url(f"{season['poster_path']}")
             data_season = tmdb.search_season_tv_shows(season["season_number"])
             sleep(4)
-            file_name = f'tv/{data_season.get("_id", "temp")}.json'
+            file_name = f"tv/{data_season.get('_id', 'temp')}.json"
             create_file(file_name, data_season)
 
             send_photo(
@@ -368,7 +376,10 @@ def posst(media_type: str, file_path: str, update, context):
 
 #                     print(seasonId,seasonDate,seasonEpisodes,seasonName,seasonPoster)
 
-async def post(media_type: str, file_path: str, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+async def post(
+    media_type: str, file_path: str, update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     data = read_file(media_type, file_path)
 
     # url_image = f"{URL_IMAGE}{data['poster_path']}"
@@ -379,8 +390,11 @@ async def post(media_type: str, file_path: str, update: Update, context: Context
 
     msg = f'<b>{original_title} ({year})</b>\n<i>{tilte}</i>\n<a href="https://www.themoviedb.org/{media_type}/{id_themoviedb}">themoviedb</a>'
 
+    msg = escape_markdown(msg, version=1)
     image = download_url(f"{data['poster_path']}")
-    await send_photo(update, context, image, msg, parse_mode="HTML", chat_id=config.ID_CHAT_POSTS)
+    await send_photo(
+        update, context, image, msg, parse_mode="HTML", chat_id=config.ID_CHAT_POSTS
+    )
 
 
 def get_link(update) -> str:
@@ -468,7 +482,7 @@ def load_data(update, is_movie):
             file_name = download_url(data_scrap["imagen"], is_poster=False)
             text = f'<b>{data_scrap["original_title"]}</b>\n<i>{data_scrap["titulo"]}</i>\n<a href="https://www.themoviedb.org/{media_type}/{data_media["id"]}">themoviedb</a>'
             send_photo(file_name, update, text)
-            create_file(f'{media_type}/{data_media["id"]}.json', data_media)
+            create_file(f"{media_type}/{data_media['id']}.json", data_media)
             delete_file(file_name)
 
             # if not is_movie:
@@ -509,7 +523,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg = await send_message(update, context, "waked up😏😏😏")
 
 
-
 list_results = []
 pages = 0
 STATUS_LIMIT = 25
@@ -527,9 +540,7 @@ def send_page_no(update, context):
     buttons.sbutton("Close", "clo")
     buttons.sbutton("Next", "nex")
     buttons.sbutton("Select", "sel")
-    reply_markup = InlineKeyboardMarkup(
-        buttons.build_menu(3)
-    )
+    reply_markup = InlineKeyboardMarkup(buttons.build_menu(3))
 
     return reply_markup
 
@@ -548,17 +559,21 @@ async def search_movie(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         pages = len(list_results)
         dt_p = list_results[PAGE_NO - 1]
         mk = send_page_no(update, context)
-        file_name = download_url(f'{dt_p["poster_path"]}')
+        file_name = download_url(f"{dt_p['poster_path']}")
         title = dt_p["original_title"]
         year = dt_p["release_date"]
 
         # sendMarkup(file_name, f'{dt_p["original_title"]}', update, mk)
         # send_photo(file_name, update, f"{title} ({year})", reply_markup=mk)
-        await send_photo(update, context, file_name, f"{title} ({year})", reply_markup=mk)
+        msg = escape_markdown(f"{title} ({year})")
+        # print(f"msg: {msg}")
+        await send_photo(
+            update, context, file_name, msg, reply_markup=mk, parse_mode="MarkdownV2"
+        )
 
         if not PAGE_NO >= pages:
             LOGGER.info(f"Se reliza pre descarga de la imagen {PAGE_NO + 1}")
-            download_url(f'{list_results[PAGE_NO]["poster_path"]}')
+            download_url(f"{list_results[PAGE_NO]['poster_path']}")
 
     else:
         print("No se encontraron resultados.")
@@ -572,10 +587,10 @@ async def select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     tmdb_t.setId(list_results[PAGE_NO - 1]["id"])
     tmdb_t.setGetResults(False)
     data_media = tmdb_t.search_movies()
-    create_file(f'movie/{data_media["id"]}.json', data_media)
+    create_file(f"movie/{data_media['id']}.json", data_media)
 
     await post("movie", data_media["id"], update, context)
-    #reset values global
+    # reset values global
     list_results = []
     # pages = 0
     # STATUS_LIMIT = 25
@@ -591,7 +606,6 @@ async def select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 #     await query.answer()
 #     await query.delete_message()
 #     return 0
-
 
 
 # def flip(update, context):
@@ -617,6 +631,9 @@ async def flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             COUNT -= STATUS_LIMIT
             PAGE_NO -= 1
     elif query.data == "clo":
+        LOGGER.info("Se recetearan los contenedores")
+        COUNT = 0
+        PAGE_NO = 1
         await query.delete_message()
         return 0
     # message_utils.update_all_messages()
@@ -628,9 +645,11 @@ async def flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if dt_p["poster_path"] is None:
         file_name = config.NO_IMAGE
     else:
-        file_name = download_url(f'{dt_p["poster_path"]}')
+        file_name = download_url(f"{dt_p['poster_path']}")
 
     tl = dt_p["original_title"]
+    if "*" in tl:
+        tl = tl.replace("*", "//*")
     year = dt_p["release_date"]
 
     await query.edit_message_media(
@@ -652,9 +671,11 @@ async def flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return 0
 
+
 send_chat_id = 0
 send_message_id = 0
 hash = ""
+
 
 async def get_info_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global send_chat_id, send_message_id, hash
@@ -663,18 +684,22 @@ async def get_info_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     text = update.message.reply_to_message.text
     if "latinomegahd" in str(text):
         url = text.split("\n")[0]
-        path =url.split("/")[3]
+        path = url.split("/")[3]
         # data = scrap_url(text)
         print(path)
         # hasattr
 
         import zlib
+
         # hash =
         hash = f"#{hex(zlib.crc32(b'path') & 0xFFFFFFFF)}"
     pass
 
+
 files_ids = []
 files_list = []
+
+
 async def save_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global files_ids, files_list
     if update.message.reply_to_message.document is None:
@@ -694,7 +719,7 @@ async def save_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         "file_name": file_name,
         "file_caption": file_caption,
         "file_size": file_size,
-        "file_size_MB": file_size/1024/1024
+        "file_size_MB": file_size / 1024 / 1024,
     }
 
     if file_unique_id not in files_ids:
@@ -702,9 +727,10 @@ async def save_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         files_list.append(my_data)
         # print(files_list)
 
+
 async def show_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global files_list
-    msg = ''
+    msg = ""
     size_list = len(files_list)
     file_size = 0
     file_size_MB = 0
@@ -719,6 +745,7 @@ async def show_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     msg = f"{msg}\n\nTamaño total: {file_size} bytes\nor {round(file_size_MB, 2)} MB"
     await send_message(update, context, msg)
 
+
 async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global files_list, send_chat_id, send_message_id, hash
     file_size = 0
@@ -726,7 +753,7 @@ async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     for file in files_list:
         file_size += file["file_size"]
         file_size_MB += file["file_size_MB"]
-        text = f"{hash}\n{file["file_caption"]}"
+        text = f"{hash}\n{file['file_caption']}"
         await send_file(
             update,
             context,
@@ -736,7 +763,11 @@ async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             caption=text,
         )
         sleep(4)
-    await send_message(update, context, f"{hash}\nSe han enviado {len(files_list)} archivos con un tamaño total: {file_size} bytes\nor {round(file_size_MB, 2)} MB")
+    await send_message(
+        update,
+        context,
+        f"{hash}\nSe han enviado {len(files_list)} archivos con un tamaño total: {file_size} bytes\nor {round(file_size_MB, 2)} MB",
+    )
 
 
 async def clean_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -751,6 +782,9 @@ STATUS_LIMIT = 25
 
 class MovieSearchHandler:
     def __init__(self):
+        # manejar las busquedas en un diccionario
+        # dict[word search]=[...]
+        # dict[word search two]=[...]
         self.list_results = []
         self.page_no = 1
         self.pages = 0
@@ -765,6 +799,14 @@ class MovieSearchHandler:
             self.type_media = "movie"
         await update.message.reply_text(f"Se ha cambiado a {self.type_media}")
 
+    def reset_args(self):
+        LOGGER.info("Se restablecieron los argumentos")
+        self.list_results = []
+        self.page_no = 1
+        self.pages = 0
+        self.count = 0
+        self.tmdb_t = None
+
     def create_buttons(self):
         buttons = ButtonMaker()
         buttons.sbutton("Previous", "pre")
@@ -773,9 +815,7 @@ class MovieSearchHandler:
         buttons.sbutton("Select", "sel")
         return InlineKeyboardMarkup(buttons.build_menu(3))
 
-    async def search_movie(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ):
+    async def search_movie(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         args: list[str] = update.message.text.split(" ")
         title = " ".join(args[1:])
         self.tmdb_t = TheMovieDB(title, "")
@@ -786,7 +826,7 @@ class MovieSearchHandler:
             data_media = self.tmdb_t.search_movies()
 
         if data_media:
-            print(json.dumps(data_media, ensure_ascii=False, indent=4))
+            # print(json.dumps(data_media, ensure_ascii=False, indent=4))
             self.list_results = data_media["data"]
             self.pages = len(self.list_results)
             return await self.show_page(update, context, self.page_no)
@@ -795,7 +835,11 @@ class MovieSearchHandler:
             return None
 
     async def show_page(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE, page_no: int, is_update: bool = False
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        page_no: int,
+        is_update: bool = False,
     ):
         try:
             self.page_no = page_no
@@ -817,14 +861,16 @@ class MovieSearchHandler:
                 title = dt_p["original_title"]
                 year = dt_p["release_date"]
 
+            msg = escape_markdown(f"{title} ({year})")
             if not is_update:
                 reply_markup = self.create_buttons()
                 await send_photo(
                     update,
                     context,
                     file_name,
-                    f"{title} ({year})",
+                    msg,
                     reply_markup=reply_markup,
+                    parse_mode="MarkdownV2",
                 )
             else:
                 query = update.callback_query
@@ -832,13 +878,16 @@ class MovieSearchHandler:
                 await query.edit_message_media(
                     media=InputMediaPhoto(
                         media=Path(file_name).open("rb"),
-                        caption=f"{title} ({year})",
+                        caption=msg,
+                        parse_mode="MarkdownV2",
                     ),
                     reply_markup=self.create_buttons(),
                 )
             if not self.page_no >= self.pages:
                 if self.list_results[self.page_no]["poster_path"] is not None:
-                    LOGGER.info(f"Se reliza pre descarga de la imagen {self.page_no + 1}")
+                    LOGGER.info(
+                        f"Se reliza pre descarga de la imagen {self.page_no + 1}"
+                    )
                     download_url(self.list_results[self.page_no]["poster_path"])
         except Exception as e:
             LOGGER.error(f"Error mostrando la página: {e}")
@@ -864,6 +913,7 @@ class MovieSearchHandler:
                 self.page_no -= 1
             # self.page_no = self.page_no - 1 if self.page_no > 1 else self.pages
         elif query.data == "clo":
+            self.reset_args()
             await query.delete_message()
             return
 
@@ -878,15 +928,14 @@ class MovieSearchHandler:
         if self.type_media == "tv":
             data_media = self.tmdb_t.search_tv_shows()
 
-            create_file(f'tv/{data_media["id"]}.json', data_media)
+            create_file(f"tv/{data_media['id']}.json", data_media)
             await post("tv", data_media["id"], update, context)
             # print season for season in data_media["seasons"]
         else:
             data_media = self.tmdb_t.search_movies()
 
-            create_file(f'movie/{data_media["id"]}.json', data_media)
+            create_file(f"movie/{data_media['id']}.json", data_media)
             await post("movie", data_media["id"], update, context)
-
 
 
 def main():
@@ -963,4 +1012,3 @@ if __name__ == "__main__":
     # create_file(f'movie/884605.json')
 
 # TODO: CRear boton para cerrar el bot enviar los logs
-
