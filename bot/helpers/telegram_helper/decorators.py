@@ -1,10 +1,9 @@
 from functools import wraps
-# from bot.config import OWNER_ID, AUTHORISED_USERS
 
-from .core.config_manager import Config
+from ...core.config_manager import Config
 
-OWNER_ID = Config.OWNER_ID
-AUTHORISED_USERS = Config.AUTHORISED_USERS
+OWNER_ID, AUTHORISED_USERS = Config.OWNER_ID, Config.AUTHORISED_USERS
+
 
 def is_authorised(func):
     @wraps(func)
@@ -12,9 +11,7 @@ def is_authorised(func):
         if (
             args[0].effective_message.from_user.id in AUTHORISED_USERS
             or args[0].message.chat_id in AUTHORISED_USERS
-        ):
-            return func(*args, **kwargs)
-        elif args[0].effective_message.from_user.id == OWNER_ID:
+        ) or args[0].effective_message.from_user.id == OWNER_ID:
             return func(*args, **kwargs)
         else:
             return False
