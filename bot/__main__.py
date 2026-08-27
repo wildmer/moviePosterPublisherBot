@@ -25,9 +25,13 @@ from telegram.ext import (  # ConversationHandler,; MessageHandler,; filters,
 from tqdm import tqdm  # type:ignore
 
 # from bot import *
-from bot import LOGGER, config, log_filename
+from bot import LOGGER, log_filename
 
-# from bot.config import HOST, NO_IMAGE, URL_IMAGE
+from .core.config_manager import Config
+Config.load()
+from .core.startup import (load_settings)
+
+# from bot.Config import HOST, NO_IMAGE, URL_IMAGE
 # from bot.helpers.helper_funcs.filters import CustomFilters
 # from telegram.ext.utils.promise import CallbackContext
 from bot.helpers.telegram_helper.button_build import ButtonMaker
@@ -242,9 +246,9 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def download_url(url: str | None, is_poster: bool = True):
     if url is None:
-        return config.NO_IMAGE
+        return Config.NO_IMAGE
     if is_poster:
-        url = config.URL_IMAGE + url
+        url = Config.URL_IMAGE + url
     file_name = url.split("/")[-1].replace("%2B", " ")
 
     if "i.imgur.com/" in url:
@@ -287,7 +291,7 @@ def download_url(url: str | None, is_poster: bool = True):
 
 
 def is_valid_link(url: str):
-    return config.HOST in url
+    return Config.HOST in url
 
 
 def is_themoviedb_url(url: str):
@@ -393,7 +397,7 @@ async def post(
     msg = escape_markdown(msg, version=1)
     image = download_url(f"{data['poster_path']}")
     await send_photo(
-        update, context, image, msg, parse_mode="HTML", chat_id=config.ID_CHAT_POSTS
+        update, context, image, msg, parse_mode="HTML", chat_id=Config.ID_CHAT_POSTS
     )
 
 
@@ -643,7 +647,7 @@ async def flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     mk = send_page_no(update, context)
     dt_p = list_results[PAGE_NO - 1]
     if dt_p["poster_path"] is None:
-        file_name = config.NO_IMAGE
+        file_name = Config.NO_IMAGE
     else:
         file_name = download_url(f"{dt_p['poster_path']}")
 
@@ -846,13 +850,13 @@ class MovieSearchHandler:
             dt_p = self.list_results[page_no - 1]
             if dt_p["poster_path"] is None:
                 print("No se encontro poster")
-                print(Path(config.NO_IMAGE).exists())
-                file_name = config.NO_IMAGE
+                print(Path(Config.NO_IMAGE).exists())
+                file_name = Config.NO_IMAGE
             else:
                 file_name = (
                     download_url(dt_p["poster_path"])
                     if dt_p["poster_path"]
-                    else config.NO_IMAGE
+                    else Config.NO_IMAGE
                 )
             if self.type_media == "tv":
                 title = dt_p["original_name"]
@@ -939,6 +943,9 @@ class MovieSearchHandler:
 
 
 def main():
+    # confid
+    load_settings()
+
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
     persistence = PicklePersistence(filepath="conversationbot")
@@ -946,11 +953,11 @@ def main():
     # Create the Application and pass it your bot's token.
     # application = (
     #     Application.builder()
-    #     .token(config["BOT"]["TOKEN"])
+    #     .token(Config["BOT"]["TOKEN"])
     #     .persistence(persistence)
     #     .build()
     # )
-    app = ApplicationBuilder().token(config.BOT_TOKEN).persistence(persistence).build()
+    app = ApplicationBuilder().token(Config.BOT_TOKEN).persistence(persistence).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("movie", post_movie))

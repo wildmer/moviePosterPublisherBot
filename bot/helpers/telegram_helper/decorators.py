@@ -1,6 +1,10 @@
 from functools import wraps
-from bot.config import OWNER_ID, AUTHORISED_USERS
+# from bot.config import OWNER_ID, AUTHORISED_USERS
 
+from .core.config_manager import Config
+
+OWNER_ID = Config.OWNER_ID
+AUTHORISED_USERS = Config.AUTHORISED_USERS
 
 def is_authorised(func):
     @wraps(func)

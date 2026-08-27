@@ -3,7 +3,9 @@ import time
 
 import requests
 
-from bot import LOGGER, config
+from bot import LOGGER
+
+from ..core.config_manager import Config
 
 # from urllib.parse import quote_plus
 
@@ -24,7 +26,7 @@ class TheMovieDB:
         self.get_results = get_results
 
     def setLanguage(self, language: int) -> None:
-        size = len(config.LANGUAGE)
+        size = len(Config.LANGUAGE)
         if language < 0 or language >= size:
             raise Exception(f"El idioma {language} no es valido")
         self.language = language
@@ -37,7 +39,7 @@ class TheMovieDB:
     ) -> dict:
         headers = {
             "Content-Type": "application/json",
-            "Authorization": config.ACCESS_TOKEN_AUTH,
+            "Authorization": Config.ACCESS_TOKEN_AUTH,
         }
         payload = {
             # Search id
@@ -46,9 +48,9 @@ class TheMovieDB:
             "query": self.title,
             "include_adult": "true",
             # "&primary_release_year=2006&page=1"
-            "language": config.LANGUAGE[self.language],
+            "language": Config.LANGUAGE[self.language],
         }
-        _url = f"{config.URL_THEMOVIEDB}{search_name or search_id}"
+        _url = f"{Config.URL_THEMOVIEDB}{search_name or search_id}"
 
         if search_name:
             payload.pop("append_to_response")
@@ -74,7 +76,7 @@ class TheMovieDB:
                 and not self.exist_overview(response.json().get("overview"))
             ):
                 LOGGER.info(
-                    f"La descripción no existe en el idioma {config.LANGUAGE[self.language]}, se intentará con el siguiente idioma."
+                    f"La descripción no existe en el idioma {Config.LANGUAGE[self.language]}, se intentará con el siguiente idioma."
                 )
                 # se realizara una espera de 5 segundos para evitar el bloqueo de la API
                 time.sleep(5)
@@ -102,7 +104,7 @@ class TheMovieDB:
 
             get_title = result.get(
                 "original_title"
-                if search_name == config.SEARCH_NAME_MOVIE
+                if search_name == Config.SEARCH_NAME_MOVIE
                 else "original_name"
             )
             print(
@@ -121,7 +123,7 @@ class TheMovieDB:
                 self.id = result["id"]
                 LOGGER.info(f"Se encontro el ID: {self.id}")
                 break
-        if not self.id and search_name == config.SEARCH_NAME_TV:
+        if not self.id and search_name == Config.SEARCH_NAME_TV:
             if response["results"][0]["original_name"]:
                 self.id = response["results"][0]["id"]
                 LOGGER.info(
@@ -130,17 +132,17 @@ class TheMovieDB:
 
         if self.id:
             return self._get_search_results(
-                search_id=config.SEARCH_ID_MOVIE
-                if search_name == config.SEARCH_NAME_MOVIE
-                else config.SEARCH_ID_TV
+                search_id=Config.SEARCH_ID_MOVIE
+                if search_name == Config.SEARCH_NAME_MOVIE
+                else Config.SEARCH_ID_TV
             )
         return {}
 
     def search_movies(self) -> dict:
-        return self._search(config.SEARCH_NAME_MOVIE)
+        return self._search(Config.SEARCH_NAME_MOVIE)
 
     def search_tv_shows(self) -> dict:
-        return self._search(config.SEARCH_NAME_TV)
+        return self._search(Config.SEARCH_NAME_TV)
 
     def search_season_tv_shows(self, season: int):
-        return self._get_search_results(search_id=config.SEARCH_ID_TV, season=season)
+        return self._get_search_results(search_id=Config.SEARCH_ID_TV, season=season)
