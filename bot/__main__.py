@@ -1,4 +1,5 @@
 # import codecs
+import asyncio
 import json
 
 # import os
@@ -8,7 +9,6 @@ from pathlib import Path
 from time import sleep, time
 
 # import telegram
-
 # from telegram import (  # ReplyKeyboardMarkup,; ReplyKeyboardRemove,; Update,; InlineKeyboardButton,; ParseMode
 #     InlineKeyboardMarkup, InputMediaPhoto)
 from telegram import InlineKeyboardMarkup, InputMediaPhoto, Update
@@ -20,14 +20,11 @@ from telegram.ext import (  # ConversationHandler,; MessageHandler,; filters,
     PicklePersistence,
 )
 
-# from bot import *
 from bot import LOGGER, log_filename
 
 from .core.config_manager import Config
 
 Config.load()
-from .core.startup import load_settings
-
 # from bot.Config import HOST, NO_IMAGE, URL_IMAGE
 # from bot.helpers.helper_funcs.filters import CustomFilters
 # from telegram.ext.utils.promise import CallbackContext
@@ -42,7 +39,9 @@ from bot.helpers.telegram_helper.msg_utils import (  # sendMarkup,
     send_photo,
 )
 from bot.modules.the_movie_db import TheMovieDB
-from bot.modules.web import scrap_url, download_url, is_valid_link, is_themoviedb_url
+from bot.modules.web import download_url, is_themoviedb_url, is_valid_link, scrap_url
+
+from .core.startup import load_settings
 
 # from telegram import Message, Chat, Update, Bot, User
 
@@ -135,10 +134,11 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Returns:
         None
     """
-    start_time = int(round(time() * 1000))
+    start_time = round(time() * 1000)
 
     reply = await send_message(update, context, "Pong!")
-    end_time = int(round(time() * 1000))
+    end_time = round(time() * 1000)
+
     # edit_message(f"{end_time - start_time} ms", reply)
     await edit_message(context, reply, f"{end_time - start_time} ms")
 
@@ -366,7 +366,6 @@ def load_data(update, is_movie):
 
         else:
             print("No se encontraron resultados.")
-            return None
 
         delete_message(msg)
 
@@ -385,7 +384,8 @@ def post_tv(update, context):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    msg = await send_message(update, context, "waked up😏😏😏")
+    msg = "waked up😏😏😏"
+    await send_message(update, context, msg)
 
 
 list_results = []
@@ -414,7 +414,7 @@ async def search_movie(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     args: list[str] = update.message.text.split(" ")
     title = " ".join(args[1:])
 
-    global tmdb_t, list_results, COUNT, PAGE_NO, pages
+    global tmdb_t, list_results, pages
     tmdb_t = TheMovieDB(title, "")
     tmdb_t.setGetResults(True)
     data_media = tmdb_t.search_movies()
@@ -442,7 +442,6 @@ async def search_movie(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     else:
         print("No se encontraron resultados.")
-        return None
 
 
 async def select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -477,10 +476,11 @@ async def select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     query.answer()
-    global COUNT, PAGE_NO, list_results
+    global COUNT, PAGE_NO
     print(f"COUNT: {COUNT} PAGE_NO: {PAGE_NO}")
     print(f"pages: {pages} STATUS_LIMIT: {STATUS_LIMIT}")
     print(f"list_results: {len(list_results)}")
+
     if query.data == "nex":
         if PAGE_NO == pages:
             COUNT = 0
@@ -556,9 +556,7 @@ async def get_info_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
         import zlib
 
-        # hash =
         hash = f"#{hex(zlib.crc32(b'path') & 0xFFFFFFFF)}"
-    pass
 
 
 files_ids = []
@@ -566,7 +564,6 @@ files_list = []
 
 
 async def save_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global files_ids, files_list
     if update.message.reply_to_message.document is None:
         await send_message(update, context, "No se ha encontrado un archivo")
     file_unique_id = update.message.reply_to_message.document.file_unique_id
@@ -594,7 +591,6 @@ async def save_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def show_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global files_list
     msg = ""
     size_list = len(files_list)
     file_size = 0
@@ -612,7 +608,6 @@ async def show_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global files_list, send_chat_id, send_message_id, hash
     file_size = 0
     file_size_MB = 0
     for file in files_list:
@@ -627,7 +622,7 @@ async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             reply_to_message_id=send_message_id,
             caption=text,
         )
-        sleep(4)
+        await asyncio.sleep(4)
     await send_message(
         update,
         context,
@@ -804,7 +799,7 @@ class MovieSearchHandler:
 
 
 def main():
-    # confid
+    # config
     load_settings()
 
     """Start the bot."""
