@@ -1,9 +1,9 @@
-#!/usr/bin/env python
-
-from telegram import InputFile, InlineKeyboardMarkup
-from telegram.error import TelegramError
+from telegram import InlineKeyboardMarkup, InputFile
+from telegram._message import Message
 from telegram.constants import ChatAction
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
+
 from bot import LOGGER
 
 # from bot import ID_CHAT_POSTS, LOGGER, upd_dis
@@ -13,8 +13,7 @@ from bot import LOGGER
 # from telegram.error import TelegramError
 # from typing import Union
 
-
-async def delete_message(context, message):
+async def delete_message(context, message: Message) -> bool:
     try:
         return await context.bot.delete_message(
             chat_id=message.chat.id, message_id=message.message_id
@@ -26,7 +25,7 @@ async def delete_message(context, message):
     return False
 
 
-async def edit_message(context, message, text, reply_markup=None):
+async def edit_message(context, message: Message, text: str, reply_markup=None):
     try:
         return await context.bot.edit_message_text(
             text=text,
