@@ -1,4 +1,3 @@
-
 import json
 import math
 from pathlib import Path
@@ -9,6 +8,30 @@ from tqdm import tqdm  # type:ignore
 
 from .. import LOGGER, exit
 from ..core.config_manager import Config
+
+
+def scrap_paste(url) -> str:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0"
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+    except requests.exceptions.RequestException as e:
+        print(e)
+        exit()
+
+    # Obtener la codificación de la respuesta
+    encoding = response.encoding
+
+    # _infoScrap = {}
+    soup = BeautifulSoup(response.content, "html.parser", from_encoding=encoding)
+
+    div = soup.find("div", {"class": "content-wrapper"})
+    # print(div)
+    title = soup.find("h2")
+    # print(title.text.strip())
+    return title.text.strip()
 
 
 def scrap_url(url) -> dict:
@@ -138,6 +161,7 @@ def download_url(url: str | None, is_poster: bool = True):
         # print("Descarga completada.")
         LOGGER.info(f"{file_name} > Descarga completada.")
         return file
+
 
 def is_valid_link(url: str):
     return Config.HOST in url
