@@ -16,9 +16,9 @@ class Config:
     TELEGRAM_API = 0
     TELEGRAM_HASH = ""
     OWNER_USERNAME = ""
-    AUTHORISED_USERS = []
-    ID_CHAT = 0
-    ID_CHAT_POSTS = 0
+    AUTHORISED_USERS = ""
+    GROUP_ID = 0
+    CHANNEL_ID = 0
     HOST = ""
     API_OMDB = ""
     idthedb = 0
@@ -177,7 +177,14 @@ class Config:
 
     @classmethod
     def _validate_required_config(cls) -> None:
-        required_keys = ["BOT_TOKEN", "OWNER_ID", "TELEGRAM_API", "TELEGRAM_HASH"]
+        required_keys = [
+            "BOT_TOKEN",
+            "OWNER_ID",
+            "TELEGRAM_API",
+            "TELEGRAM_HASH",
+            "GROUP_ID",
+            "CHANNEL_ID",
+        ]
 
         for key in required_keys:
             value = getattr(cls, key)

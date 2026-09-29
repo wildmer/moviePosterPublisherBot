@@ -1,12 +1,12 @@
-#!/usr/bin/env python
-
-from telegram import InputFile, InlineKeyboardMarkup
-from telegram.error import TelegramError
+from telegram import InlineKeyboardMarkup, InputFile
+from telegram._message import Message
 from telegram.constants import ChatAction
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
+
 from bot import LOGGER
 
-# from bot import ID_CHAT_POSTS, LOGGER, upd_dis
+# from bot import CHANNEL_ID, LOGGER, upd_dis
 # from telegram import ChatAction, InputFile, InlineKeyboardMarkup
 # from telegram.message import Message
 # from telegram.update import Update
@@ -14,7 +14,7 @@ from bot import LOGGER
 # from typing import Union
 
 
-async def delete_message(context, message):
+async def delete_message(context, message: Message) -> bool:
     try:
         return await context.bot.delete_message(
             chat_id=message.chat.id, message_id=message.message_id
@@ -26,21 +26,30 @@ async def delete_message(context, message):
     return False
 
 
-async def edit_message(context, message, text, reply_markup=None):
+# async def edit_message(context, message: Message, text: str, reply_markup=None):
+async def edit_message(context, message: Message, **kwargs):
+    kwargs.setdefault("parse_mode", "markdown")
+    kwargs.setdefault("reply_markup", None)
+
     try:
-        return await context.bot.edit_message_text(
-            text=text,
-            message_id=message.message_id,
-            chat_id=message.chat.id,
-            reply_markup=reply_markup,
-            parse_mode="markdown",
-        )
+        # message id
+        kwargs["chat_id"] = kwargs.get("chat_id", message.chat.id)
+        kwargs["message_id"] = kwargs.get("message_id", message.message_id)
+        # print(kwargs)
+        return await context.bot.edit_message_text(**kwargs)
     except Exception as e:
         LOGGER.error(str(e))
 
 
 async def send_message(
-    update, context, text: str, parse_mode="markdown", reply_to_message: bool = False
+    update,
+    context,
+    text: str,
+    parse_mode="markdown",
+    # **kwargs,
+    reply_to_message: bool = False,
+    reply_to_message_id: int = 0,
+    reply_to_message_chat_id=0,
 ):
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action=ChatAction.TYPING
@@ -57,6 +66,10 @@ async def send_message(
 
     if reply_to_message:
         args["reply_to_message_id"] = update.message.message_id
+        if reply_to_message_id:
+            args["reply_to_message_id"] = reply_to_message_id
+        if reply_to_message_chat_id:
+            args["chat_id"] = reply_to_message_chat_id
 
     try:
         return await context.bot.send_message(**args)
@@ -80,11 +93,11 @@ async def send_file(
     )
     if isinstance(file_path, str):
         return await context.bot.send_document(
-                    chat_id=chat_id,
-                    document=file_path,
-                    reply_to_message_id=reply_to_message_id,
-                    caption=caption,
-                )
+            chat_id=chat_id,
+            document=file_path,
+            reply_to_message_id=reply_to_message_id,
+            caption=caption,
+        )
 
     try:
         with open(file_path, "rb") as f:
@@ -98,8 +111,20 @@ async def send_file(
     except Exception as e:
         LOGGER.error(f"Error al enviar documento: {str(e)}")
 
-async def send_photo(update, context, file_path, text: str = "", reply_to_message=False, parse_mode="markdown", reply_markup=None, chat_id=None):
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
+
+async def send_photo(
+    update,
+    context,
+    file_path,
+    text: str = "",
+    reply_to_message=False,
+    parse_mode="markdown",
+    reply_markup=None,
+    chat_id=None,
+):
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO
+    )
     args = {
         "chat_id": chat_id or update.effective_chat.id,
         "caption": text,
@@ -117,8 +142,14 @@ async def send_photo(update, context, file_path, text: str = "", reply_to_messag
     except TelegramError as e:
         LOGGER.error(f"Error al enviar foto: {str(e)}")
 
-async def send_markup(update, context, file_path, text: str, reply_markup: InlineKeyboardMarkup):
-    return await send_photo(update, context, file_path, text, True, "markdown", reply_markup)
+
+async def send_markup(
+    update, context, file_path, text: str, reply_markup: InlineKeyboardMarkup
+):
+    return await send_photo(
+        update, context, file_path, text, True, "markdown", reply_markup
+    )
+
 
 # def send_photo(
 #     file_path,
@@ -132,10 +163,10 @@ async def send_markup(update, context, file_path, text: str, reply_markup: Inlin
 #     # update.message.chat.send_action(ChatAction.UPLOAD_PHOTO)
 
 #     # if chat_id:
-#     #     ID_CHAT_POSTS = chat_id
+#     #     CHANNEL_ID = chat_id
 
 #     args = {
-#         "chat_id": ID_CHAT_POSTS,
+#         "chat_id": CHANNEL_ID,
 #         "caption": text,
 #         "parse_mode": parse_mode,
 #         "allow_sending_without_reply": True,

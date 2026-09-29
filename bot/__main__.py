@@ -11,16 +11,18 @@ from time import sleep, time
 # import telegram
 # from telegram import (  # ReplyKeyboardMarkup,; ReplyKeyboardRemove,; Update,; InlineKeyboardButton,; ParseMode
 #     InlineKeyboardMarkup, InputMediaPhoto)
-from telegram import InlineKeyboardMarkup, InputMediaPhoto, Update
-from telegram.ext import (  # ConversationHandler,; MessageHandler,; filters,
+from telegram import InlineKeyboardMarkup, InputMediaPhoto, MessageOriginChannel, Update
+from telegram.ext import (  # ConversationHandler,; MessageHandler,;
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
     PicklePersistence,
+    filters,
 )
 
-from bot import LOGGER, log_filename
+from bot import LOGGER, db, log_filename
 
 from .core.config_manager import Config
 
@@ -28,6 +30,8 @@ Config.load()
 # from bot.Config import HOST, NO_IMAGE, URL_IMAGE
 # from bot.helpers.helper_funcs.filters import CustomFilters
 # from telegram.ext.utils.promise import CallbackContext
+from urllib.parse import urlparse
+
 from bot.helpers.telegram_helper.button_build import ButtonMaker
 
 # from bot.helpers.telegram_helper.decorators import is_authorised
@@ -39,7 +43,13 @@ from bot.helpers.telegram_helper.msg_utils import (  # sendMarkup,
     send_photo,
 )
 from bot.modules.the_movie_db import TheMovieDB
-from bot.modules.web import download_url, is_themoviedb_url, is_valid_link, scrap_url
+from bot.modules.web import (
+    download_url,
+    is_themoviedb_url,
+    is_valid_link,
+    scrap_paste,
+    scrap_url,
+)
 
 from .core.startup import load_settings
 
@@ -140,7 +150,7 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     end_time = round(time() * 1000)
 
     # edit_message(f"{end_time - start_time} ms", reply)
-    await edit_message(context, reply, f"{end_time - start_time} ms")
+    await edit_message(context, reply, text=f"{end_time - start_time} ms")
 
 
 # TODO: Revisar y havcer que envie los logs segun la fecha
@@ -257,9 +267,87 @@ async def post(
 
     msg = escape_markdown(msg, version=1)
     image = download_url(f"{data['poster_path']}")
-    await send_photo(
-        update, context, image, msg, parse_mode="HTML", chat_id=Config.ID_CHAT_POSTS
+    msg_result = await send_photo(
+        update, context, image, msg, parse_mode="HTML", chat_id=Config.CHANNEL_ID
     )
+    LOGGER.info(
+        f"Se publico {media_type}/{id_themoviedb} correctamente el mensaje con id: {msg_result.message_id} y chat_id: {msg_result.chat_id}"
+    )
+    # return
+    print("POST ID:", msg_result)
+    # print("POST ID:", msg_result.message_id)
+    # print("CHAT ID:", msg_result.chat.id)
+    # discussion = await context.bot.get_chat(chat_id=msg_result.chat.id)
+    try:
+        chat = await context.bot.get_chat(msg_result.chat.id)
+        print(chat)
+    except Exception as e:
+        LOGGER.error(f"Error al obtener el chat: {e}")
+        return
+    # print("CHANNEL ID:", chat.id)
+    # print("LINKED CHAT ID:", chat.linked_chat_id)
+
+    # discussion = await context.bot._post(
+    #     "getDiscussionMessage",
+    #     data={
+    #         "chat_id": msg_result.chat.id,
+    #         "message_id": msg_result.message_id,
+    #     },
+    # )
+    # print("DISCUSSION:", discussion)
+    _ = {
+        "id_channel": Config.CHANNEL_ID,
+        "type": "channel",
+        "name": msg_result.chat.title or "",
+        "channel_message_id": msg_result.message_id,
+    }
+    db.save_data("chats", _["id_channel"], _["type"], _["name"])
+    # id_c = db.get_id("channels", "telegram_id", msg_result.chat_id)
+    print(_)
+    print(id_themoviedb)
+    # db.save_data(
+        # "posts",
+        # _["id_channel"],
+        # _["channel_message_id"],
+        # id_themoviedb,
+        # columns=["channel_chat_id", "channel_message_id", "title_id"],
+    # )
+
+    # db.get_id("posts", "telegram_post_id",  msg_result.chat_id)
+    # print(data)
+    # db.save_data()
+    genres = data["genres"]
+    external_ids = data["external_ids"]
+    # print(external_ids)
+    if media_type == "movie":
+        db.save_data(
+            "titles",
+            data["id"],
+            media_type,
+            data["original_title"],
+            data["title"],
+            data["original_language"],
+            data["tagline"],
+            data["release_date"],
+            data["overview"],
+            data["runtime"],
+            data["vote_average"],
+            data["vote_count"],
+        )
+        for g in genres:
+            db.save_data("genres", g["id"], g["name"])
+            db.save_data("title_genres", data["id"], g["id"])
+
+        for ex in external_ids.items():
+            db.save_data("external_ids", data["id"], ex[0], ex[1])
+
+    sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id ) VALUES ({_["id_channel"]}, {_["channel_message_id"]}, {id_themoviedb})"""
+    db.execute_query(sql)
+    # sql = f"""SELECT id FROM posts WHERE channel_chat_id = {Config.CHANNEL_ID} AND channel_message_id = {msg_result.message_id};"""
+    # _x = db.execute_query(sql)
+    # _post_id = _x.fetch_one()[0]
+
+    # db.save_data("post_items", _post_id, data["id"], columns=["post_id", "title_id"])
 
 
 def get_link(update) -> str:
@@ -630,12 +718,483 @@ async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
+def parse_message(msg):
+    _json = msg.to_dict()
+    return json.dumps(_json, indent=3, default=str, ensure_ascii=False)
+
+
+def save_links_in_db(**kwargs):
+    title_id = kwargs["title_id"]
+    link_origins = kwargs["link_origins"]
+    # print(link_origins)
+    paste = kwargs["paste"]
+    links_cloud = kwargs["links_cloud"]
+    # tag = kwargs["tag"]
+    msg_for_send = ""
+
+    name_past = scrap_paste(paste)
+    if not name_past:
+        print("detener")
+        exit()
+
+    #  save domain and path
+    name_domain = urlparse(link_origins).hostname
+    netloc = urlparse(link_origins).netloc
+    path = link_origins.split(netloc)[1]
+    db.save_data("domains", "origin", netloc, name_domain)
+    netloc = f"'{netloc}'"  # Agregar comillas a la variable netloc
+    get_domain_id = db.get_id(
+        "domains", "host", netloc
+    )  # agrearcomillas a la columna host
+    _id = db.save_data("paths", get_domain_id, path)
+    path = f"'{path}'"  # Agregar comillas a la variable path
+    get_path_id = db.get_id("paths", "path", path)
+    db.save_data(
+        "links", title_id, get_path_id, "", columns=["title_id", "path_id", "name"]
+    )
+    sql = f"""SELECT id FROM links l WHERE l.title_id = {title_id} AND l.path_id = {get_path_id}"""
+    _id_origin = db.execute_query(sql)
+    _id_origin = _id_origin.fetch_one()[0]
+    # empezar a construir el mensaje para enviar al chat de discusion, con el link de origen y el link de paste, y si hay links en la nube, agregarlos tambien
+    # esto con formato markdown, con el name domain como texto del link, y el netloc con el path como url del link, y si hay links en la nube, agregarlos tambien con el mismo formato
+
+    # msg_for_send = f"<b>Links:</b>\n"
+    msg_for_send += f"<a href='{link_origins}'>{name_domain}</a>\n"
+
+    # save paste
+    name_domain, netloc = urlparse(paste).hostname, urlparse(paste).netloc
+    path = paste.split(netloc)[1]
+
+    path = paste.split(netloc)[1]
+    sql = f"""SELECT p.id FROM paths p WHERE "path" like '{path}'"""
+    get_path_id = exist_path_in_bd = db.execute_query(sql).fetch_one()  # may be None
+    if exist_path_in_bd:
+        print(f"el path ya existe {path}")
+        # return False
+        # & continuaos pero no guardamos, solo obtemos el id
+    else:
+        # TODO: 345.slidb: al no existir este deberia devolver el id ya que se acaba de guardar
+        # ? pero el domain siempre estara lo que debomos revisar es el 'path' table
+        # * upate no cambiara
+        db.save_data("domains", "paste", netloc, name_domain)  # * save domain.paste
+        netloc = (
+            f"'{netloc}'"  # TODO eso se puede hacaer #456 in funtion third parameter
+        )
+        get_domain_id = db.get_id(
+            "domains", "host", netloc
+        )  # ^ delete this line when complete #345.slidb
+
+        _id = db.save_data("paths", get_domain_id, path)
+        path = f"'{path}'"  # TODO eso se puede hacaer #456 in funtion third parameter
+        get_path_id = db.get_id("paths", "path", path)
+        sql = f"""SELECT id FROM links l WHERE l.title_id = {title_id} AND l.path_id = {get_path_id}"""
+        # todo: aqui tambien se puede filtrar por parent_id
+        id_paste = None
+        try:
+            _id_paste = db.execute_query(sql)
+            id_paste = _id_paste.fetch_one()[0]
+            print(id_paste)
+        except Exception as e:
+            print(str(e))
+
+        if not id_paste:
+            __x = db.save_data(
+                "links",
+                title_id,
+                get_path_id,
+                _id_origin,
+                name_past,
+                columns=["title_id", "path_id", "parent_id", "name"],
+            )
+            print(__x)
+            try:
+                _id_paste = db.execute_query(sql)
+                id_paste = _id_paste.fetch_one()[0]
+                print(id_paste)
+            except Exception as e:
+                print(str(e))
+    # sql = f"""SELECT id FROM links l WHERE l.title_id = {title_id} AND l.path_id = {get_path_id}"""
+    # _id_paste = db.execute_query(sql)
+    # id_paste = _id_paste.fetch_one()[0]
+    # print(id_path)
+    # todo no esta registradno los links en parent id # *corregido
+    msg_for_send += f"<a href='{paste}'>{name_past}</a>\n\n"
+
+    if links_cloud:
+        print(len(links_cloud))
+        end_link = links_cloud[-1]
+        for link in links_cloud:
+            sep = " - " if link != end_link else "\n"
+            name_domain = urlparse(link).hostname
+            netloc = urlparse(link).netloc
+            path = link.split(netloc)[1]
+            db.save_data("domains", "cloud", netloc, name_domain)
+            netloc = f"'{netloc}'"  # Agregar comillas a la variable netloc
+            get_domain_id = db.get_id("domains", "host", netloc)
+            _id = db.save_data("paths", get_domain_id, path)
+            path = f"'{path}'"  # Agregar comillas a la variable path
+            get_path_id = db.get_id("paths", "path", path)
+            db.save_data(
+                "links",
+                title_id,
+                get_path_id,
+                "",
+                id_paste,
+                columns=["title_id", "path_id", "name", "parent_id"],
+            )
+            msg_for_send += f"<a href='{link}'>{name_domain}</a>{sep}"
+
+    return msg_for_send
+
+
+async def add_cloud_links(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args: list[str] = update.message.text.split("\n")
+    # print(parse_message(update.message))
+    msg_forward_origin = update.message.reply_to_message.forward_origin
+    # print(up_message)
+    # print(msg_forward_origin)
+    if msg_forward_origin:
+        channel_chat_id = msg_forward_origin.chat.id
+        extract_message_id = msg_forward_origin.message_id
+
+        if len(args) < 3:
+            # await send_message(update, context, "Uso: /edit <message_id> <nuevo_texto>")
+            await send_message(
+                update,
+                context,
+                "Uso: /edit <link_origins> <paste> <tag_or_name> [<links_cloud]",
+            )
+            return
+        command = args[0]
+        if not command.startswith("/"):
+            print("no es coomando")
+            return
+        link_origins = args[1]
+        paste = args[2]
+        # name = args[3] if len(args) > 3 else None
+        links_cloud = sorted(args[3:]) if len(args[3:]) >= 1 else None
+
+        # sql = f""""""
+        print("add_cloud_links")
+
+        sql = f"""
+            SELECT
+                po.id,
+                po.discussion_chat_id,
+                po.discussion_message_id,
+                po.title_id
+            FROM posts AS po
+            WHERE po.channel_chat_id = {channel_chat_id}
+            AND po.channel_message_id = {extract_message_id};
+        """
+
+        row = db.execute_query(sql).fetch_one()
+        if not row:
+            return
+        post_id, chat_id, extract_message_thread_id, title_id = row
+
+        if title_id is not None:
+            msg_for_send = save_links_in_db(
+                title_id=title_id,
+                link_origins=link_origins,
+                paste=paste,
+                links_cloud=links_cloud,
+                # tag=name,
+            )
+
+            if not msg_for_send:
+                return
+
+            # msg = "waiting..."
+            # msg = escape_markdown(msg_for_send, version=1)
+            reply = await send_message(
+                update,
+                context,
+                msg_for_send,
+                parse_mode="HTML",
+                reply_to_message=True,
+                reply_to_message_id=extract_message_thread_id,
+                reply_to_message_chat_id=chat_id,
+            )
+            # print("REPLY:", reply)
+            discussion_message_id = reply.message_id
+            message_thread_id = reply.message_thread_id
+            # sql = f"""UPDATE post_items SET bot_message_id = {discussion_message_id} WHERE post_id = {post_id} AND title_id = {title_id};"""
+            # ! anadir validacion si existe bot_message_id
+            db.save_data(
+                "post_messages",
+                post_id,
+                discussion_message_id,
+                "links",
+                columns=["post_id", "message_id", "kind"],
+            )
+
+            # db.execute_query(sql)
+            # return
+    return
+
+
+async def edit_message_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    args: list[str] = update.message.text.split("\n")
+    try:
+        msg_forward_origin = update.message.reply_to_message.forward_origin
+    except:
+        msg_forward_origin = None
+        print("no es un mensaje reenviado por ende se aplicara la segunda opcion")
+
+    if msg_forward_origin:
+        channel_chat_id = msg_forward_origin.chat.id
+        extract_message_id = msg_forward_origin.message_id
+        sql = f"""SELECT po.id, po.discussion_chat_id, pi.bot_message_id, pi.title_id  FROM posts as po JOIN post_items as pi  ON po.id = pi.post_id  WHERE channel_chat_id = {channel_chat_id} AND channel_message_id = {extract_message_id};"""
+        print(sql)
+        # _x = db.execute_query(sql).fetch_one()
+        # print(_x)
+        post_id, chat_id, bot_message_id, title_id = db.execute_query(sql).fetch_one()
+    else:
+        extract_message_id = update.message.reply_to_message.message_id
+        extract_message_thread_id = (
+            update.message.reply_to_message.message_thread_id
+        )  # root first message id
+        chat_id = update.message.reply_to_message.chat_id
+        this_message_id = update.message.message_id
+        # obtener el title_id de la post_items agregando validaciones en la tabla post, puede ser con un union de la tabla post_items y post, para obtener el title_id de la tabla post_items, con el chat_id y message_id del mensaje de respuesta
+        sql = f"""SELECT title_id FROM post_items WHERE post_id = (SELECT id FROM posts WHERE discussion_chat_id = {chat_id} AND discussion_message_id = {extract_message_thread_id});"""
+        _x = db.execute_query(sql).fetch_one()
+        print(_x)
+
+        if _x is not None:
+            title_id = _x[0]
+        else:
+            print("erro al traer el tilte id ")
+            return
+    # print(f"title_id: {_x}")
+
+    if len(args) < 3:
+        # await send_message(update, context, "Uso: /edit <message_id> <nuevo_texto>")
+        await send_message(
+            update,
+            context,
+            "Uso: /edit <link_origins> <paste> <tag_or_name> [<links_cloud]",
+        )
+        return
+
+    link_origins = args[1]
+    paste = args[2]
+    name = args[3] if len(args) > 3 else None
+    links_cloud = sorted(args[4:]) if len(args[4:]) >= 1 else None
+    print(args)
+
+    msg_for_send = save_links_in_db(
+        title_id=title_id,
+        link_origins=link_origins,
+        paste=paste,
+        links_cloud=links_cloud,
+        tag=name,
+    )
+
+    if msg_forward_origin:
+        # print(msg_for_send)
+        await edit_message(
+            context,
+            update.message,
+            chat_id=chat_id,
+            message_id=bot_message_id,
+            text=msg_for_send,
+            parse_mode="HTML",
+        )
+    # msg = escape_markdown(msg_for_send, version=1)
+    # reply = await send_message(
+    #     update,
+    #     context,
+    #     msg_for_send,
+    #     parse_mode="HTML",
+    #     reply_to_message=True,
+    #     reply_to_message_id=extract_message_thread_id,
+    #     reply_to_message_chat_id=chat_id,
+    # )
+    # print("REPLY:", reply)
+    # discussion_message_id = reply.message_id
+    # message_thread_id = reply.message_thread_id
+    # sql = f"""UPDATE post_items SET bot_message_id = {discussion_message_id} WHERE post_id = {post_id} AND title_id = {title_id};"""
+    # db.execute_query(sql)
+    else:
+        # agreromos los links
+        await edit_message(
+            context,
+            update.message.reply_to_message,
+            text=msg_for_send,
+            parse_mode="HTML",
+        )
+
+    # print(args)
+    # print(message_id)
+    # from pprint import pprint
+    # # pprint(vars(update.message))
+    # pprint(parse_message(update.message))
+    # txt =str(update.message) #.replace(", ", "\n")
+    # print(txt)
+    # if len(args) < 3:
+    #     await send_message(update, context, "Uso: /edit <message_id> <nuevo_texto>")
+    #     return
+
+    # message_id = int(args[1])
+    # new_text = " ".join(args[2:])
+
+    # try:
+    #     await edit_message(context, update.message, new_text)
+    #     await send_message(update, context, f"Mensaje editado correctamente: {message_id}")
+    # except Exception as e:
+    #     LOGGER.error(f"Error al editar el mensaje: {e}")
+    #     await send_message(update, context, f"No se pudo editar el mensaje: {message_id}")
+
+
+async def add_paths(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args: list[str] = update.message.text.split(" ")
+    print(args)
+    name = urlparse(args[1]).hostname
+    netloc = urlparse(args[1]).netloc
+    path = args[1].split(netloc)[1]
+    if args[2] == "origin":
+        db.save_data("domains", "origin", name, netloc)
+    elif args[2] == "cloud":
+        db.save_data("domains", "cloud", name, netloc)
+    else:
+        db.save_data("domains", "paste", name, netloc)
+    get_domain_id = db.get_name("domains", "name", name)
+    _id = db.save_data("paths", get_domain_id, path)
+    # send_message(f"- {_id} enviado y guardado")
+
+
+# async def add_origins(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     args: list[str] = update.message.text.split(" ")
+#     *_, name = args[1].partition("//")
+#     _id = db.save_data("domains", "origin", name, args[1])
+
+
+async def add_cloud(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # test
+    # db.test()
+    # db.save_data(
+    #     "posts",
+    #     -1001713666556,
+    #     363,
+    #     9798,
+    #     columns=["channel_chat_id", "channel_message_id", "title_id"],
+    # )
+    slq = """UPDATE posts
+    SET discussion_chat_id    = -1001911575890,
+        discussion_message_id = 5845
+    WHERE channel_chat_id    = -1001713666556
+    AND channel_message_id = 363;"""
+
+    db.execute_query(slq)
+    # print(db.execute_query("PRAGMA table_info(posts)"))
+    # print(
+    #     db.execute_query("""
+    #     SELECT sql
+    #     FROM sqlite_master
+    #     WHERE type = 'table' AND name = 'posts'
+    # """)
+    # )
+    # args: list[str] = update.message.text.split(" ")
+    # *_, name = args[1].partition("//")
+    # _id = db.save_data("domains", "cloud", name, args[1])
+    # # send_message(f"- {_id} enviado y guardado")
+
+
 async def clean_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global files_list, files_ids
     files_list = []
     files_ids = []
     await send_message(update, context, "Se ha limpiado la lista de archivos")
 
+
+async def handle_discussion_message(update, context):
+    message = update.message
+
+    if not message.is_automatic_forward:
+        return
+
+    origin = message.forward_origin
+
+    if not isinstance(origin, MessageOriginChannel):
+        return
+
+    channel_id = origin.chat.id
+    channel_message_id = post_id = origin.message_id
+
+    discussion_chat_id = message.chat.id
+    discussion_message_id = message.message_id
+    discussion_title = message.chat.title
+
+    print("POST:", post_id)
+    print("CHANNEL:", channel_id)
+    print("DISCUSSION CHAT:", discussion_chat_id)
+    print("DISCUSSION MESSAGE:", discussion_message_id)
+    # print("MESSAGE:", message)
+    # id_c = db.get_id("channels", "telegram_id", channel_id)
+    # _discussion_chat_id = db.get_id("chats", "telegram_id", discussion_chat_id)
+    db.save_data("chats", message.chat.id, "group", discussion_title)
+    # post_id = db.get_id("posts", "channel_message_id", channel_message_id)
+    slq = f"""UPDATE posts
+    SET discussion_chat_id    = {discussion_chat_id},
+        discussion_message_id = {discussion_message_id}
+    WHERE channel_chat_id    = {channel_id}
+    AND channel_message_id = {channel_message_id};"""
+    db.execute_query(slq)
+
+
+#     return
+#     # TODO: esta estructura del codigo ya no es necesaria
+#     #  ~ el codigo ahora ya no es necesario
+#     # db.save_data("posts", channel_id, post_id, discussion_message_id)
+#     # sql = f"""SELECT id FROM posts WHERE channel_chat_id = {Config.CHANNEL_ID} AND channel_message_id = {channel_message_id};"""
+#     # _x = db.execute_query(sql)
+
+#     # _post_id =  db.fetch_one()[0]
+
+#     title_id = db.get_title_id("post_items", "post_id", post_id)
+#     # _post_id = db.get_id(
+#     #     "posts", "telegram_post_id", post_id
+#     # ) # | agregar validacion extra puede falar
+#     # db.save_data("post_items", _post_id,title_id, discussion_message_id) # update
+
+#     # db.save_data("sources", itle_id
+#     msg = "waiting..."
+#     msg = escape_markdown(msg, version=1)
+#     reply = await send_message(
+#         update,
+#         context,
+#         msg,
+#         reply_to_message=True,
+#         reply_to_message_id=discussion_message_id,
+#     )
+#     # print("REPLY:", reply)
+#     print(discussion_message_id)
+#     discussion_message_id = reply.message_id
+#     print(discussion_message_id)
+#     #  pienso que el envio del mensajhe es innesasario
+#     #
+
+#     message_thread_id = reply.message_thread_id
+#     sql = f"""UPDATE post_items
+#    SET bot_message_id = {discussion_message_id}
+#  WHERE post_id = {post_id} AND title_id = {title_id};"""
+#     db.execute_query(sql)
+#     # , reply_to_message=Message(api_kwargs={'forward_date': 1791009084, 'forward_from_chat': {'id': -1001251251830, 'title': 'Cosas', 'type': 'channel'}, 'forward_from_message_id': 178}
+#     # edit_message(f"{end_time - start_time} ms", reply)
+#     # await edit_message(context, reply, f"{end_time - start_time} ms")
+
+
+# # async def handle_channel_post(update, context):
+# #     print("w")
+# #     post = update.channel_post
+
+# #     print("Canal:", post.chat.id)
+# #     print("Post:", post.message_id)
+# #     print("Texto:", post.text or post.caption)
 
 STATUS_LIMIT = 25
 
@@ -826,6 +1385,21 @@ def main():
     app.add_handler(CommandHandler("list", show_list_files))
     app.add_handler(CommandHandler("send", send_list_files))
     app.add_handler(CommandHandler("clean", clean_list_files))
+    app.add_handler(CommandHandler("add_cloud", add_cloud))
+    # app.add_handler(CommandHandler("add_origins", add_origins))
+    app.add_handler(CommandHandler("add_paths", add_paths))
+    app.add_handler(CommandHandler("edit", edit_message_command))
+    app.add_handler(CommandHandler("add", add_cloud_links))
+
+    # app.add_handler(
+    #     MessageHandler(filters.UpdateType.CHANNEL_POST, handle_channel_post)
+    # )
+    app.add_handler(
+        MessageHandler(
+            filters.Chat(chat_id=Config.GROUP_ID),  # - 1001236704652),
+            handle_discussion_message,
+        )
+    )
 
     movie_handler = MovieSearchHandler()
     app.add_handler(CommandHandler("change", movie_handler.change))
