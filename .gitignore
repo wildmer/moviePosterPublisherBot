@@ -16,4 +16,4 @@ bot/modules/manager_files.py
 *.log
 log**.txt
 conversationbot
-/log/
+logs/
