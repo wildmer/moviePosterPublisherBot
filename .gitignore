@@ -18,3 +18,4 @@ log**.txt
 conversationbot
 logs/
 *.sqlite3
+*.sql
