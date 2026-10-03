@@ -19,3 +19,4 @@ conversationbot
 logs/
 *.sqlite3
 *.sql
+*.bak
