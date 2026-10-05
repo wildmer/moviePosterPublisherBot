@@ -1,6 +1,7 @@
 from sys import exit, platform, version_info
 
 from bot.core.logger_config import configure_logger
+from bot.utils.bd_scripts import Querys
 
 LOGGER = configure_logger(__name__)
 log_filename = "log.log"  # quitar esto ya que ahora es dinamico submodulizar
@@ -40,4 +41,6 @@ else:
     # LOGGER.error(
     #     "You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting."
     # )
-    exit() # or quit(1)
+    exit()  # or quit(1)
+
+db = Querys()
