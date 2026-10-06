@@ -1280,7 +1280,17 @@ class MovieSearchHandler:
                 title = dt_p["original_title"]
                 year = dt_p["release_date"]
 
-            msg = escape_markdown(f"{title} ({year})")
+            _id = dt_p["id"]
+            # con esto sabemos si ya posteamos la pelicula antes
+            sql = f"""SELECT p.channel_message_id FROM posts AS p WHERE p.title_id = (SELECT t.id FROM titles AS t WHERE t.id = {_id}); """
+            _id_channel = db.execute_query(sql).fetch_one()
+            # print(_id_channel)
+            if _id_channel:
+                title = escape_markdown(title)
+                year = escape_markdown(f"({year})")
+                msg = f"[{title}](https://t.me/abzy12/{_id_channel[0]}) {year}"
+            else:
+                msg = escape_markdown(f"{title} ({year})")
             if not is_update:
                 reply_markup = self.create_buttons()
                 await send_photo(
