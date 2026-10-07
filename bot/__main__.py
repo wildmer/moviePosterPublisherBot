@@ -768,8 +768,12 @@ def save_links_in_db(**kwargs):
     path = paste.split(netloc)[1]
     sql = f"""SELECT p.id FROM paths p WHERE "path" like '{path}'"""
     get_path_id = exist_path_in_bd = db.execute_query(sql).fetch_one()  # may be None
+
+    id_paste = None
+
     if exist_path_in_bd:
         print(f"el path ya existe {path}")
+        id_paste = get_path_id[0]
         # return False
         # & continuaos pero no guardamos, solo obtemos el id
     else:
@@ -789,30 +793,25 @@ def save_links_in_db(**kwargs):
         get_path_id = db.get_id("paths", "path", path)
         sql = f"""SELECT id FROM links l WHERE l.title_id = {title_id} AND l.path_id = {get_path_id}"""
         # todo: aqui tambien se puede filtrar por parent_id
-        id_paste = None
-        try:
-            _id_paste = db.execute_query(sql)
-            id_paste = _id_paste.fetch_one()[0]
-            print(id_paste)
-        except Exception as e:
-            print(str(e))
 
-        if not id_paste:
-            __x = db.save_data(
-                "links",
-                title_id,
-                get_path_id,
-                _id_origin,
-                name_past,
-                columns=["title_id", "path_id", "parent_id", "name"],
-            )
-            print(__x)
+        if id_paste := db.execute_query(sql):
+        # _id_paste = db.execute_query(sql)
+            id_paste = id_paste.fetch_one()[0]
+            print(id_paste)
+        else:
             try:
-                _id_paste = db.execute_query(sql)
-                id_paste = _id_paste.fetch_one()[0]
-                print(id_paste)
+            # ^ en pruebas, pero deberia funcionar
+                id_paste = db.save_data(
+                    "links",
+                    title_id,
+                    get_path_id,
+                    _id_origin,
+                    name_past,
+                    columns=["title_id", "path_id", "parent_id", "name"],
+                )
             except Exception as e:
                 print(str(e))
+
     # sql = f"""SELECT id FROM links l WHERE l.title_id = {title_id} AND l.path_id = {get_path_id}"""
     # _id_paste = db.execute_query(sql)
     # id_paste = _id_paste.fetch_one()[0]
