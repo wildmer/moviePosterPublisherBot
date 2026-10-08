@@ -742,13 +742,20 @@ def save_links_in_db(**kwargs):
     netloc = urlparse(link_origins).netloc
     path = link_origins.split(netloc)[1]
     db.save_data("domains", "origin", netloc, name_domain)
-    netloc = f"'{netloc}'"  # Agregar comillas a la variable netloc
-    get_domain_id = db.get_id(
-        "domains", "host", netloc
-    )  # agrearcomillas a la columna host
+    # netloc = f"'{netloc}'"  # Agregar comillas a la variable netloc
+    # get_domain_id = db.get_id(
+    #     "domains", "host", netloc
+    # )  # agrearcomillas a la columna host
+    sql = f"""SELECT d.id FROM domains d WHERE "host" like '{netloc}'"""
+    get_domain_id = db.execute_query(sql).fetch_one()
+    get_domain_id = get_domain_id[0]
+    
     _id = db.save_data("paths", get_domain_id, path)
-    path = f"'{path}'"  # Agregar comillas a la variable path
-    get_path_id = db.get_id("paths", "path", path)
+    # path = f"'{path}'"  # Agregar comillas a la variable path
+    # get_path_id = db.get_id("paths", "path", path)
+    sql = f"""SELECT p.id FROM paths p WHERE "path" like '{path}'"""
+    get_path_id = db.execute_query(sql).fetch_one()
+    get_path_id = get_path_id[0]
     db.save_data(
         "links", title_id, get_path_id, "", columns=["title_id", "path_id", "name"]
     )
@@ -781,22 +788,30 @@ def save_links_in_db(**kwargs):
         # ? pero el domain siempre estara lo que debomos revisar es el 'path' table
         # * upate no cambiara
         db.save_data("domains", "paste", netloc, name_domain)  # * save domain.paste
-        netloc = (
-            f"'{netloc}'"  # TODO eso se puede hacaer #456 in funtion third parameter
-        )
-        get_domain_id = db.get_id(
-            "domains", "host", netloc
-        )  # ^ delete this line when complete #345.slidb
+        # netloc = (
+        #     f"'{netloc}'"  # TODO eso se puede hacaer #456 in funtion third parameter
+        # )
+        
+        sql = f"""SELECT d.id FROM domains d WHERE "host" like '{netloc}'"""
+        get_domain_id = db.execute_query(sql).fetch_one()
+        get_domain_id = get_domain_id[0]
+        # get_domain_id = db.get_id(
+        #     "domains", "host", netloc
+        # )  # ^ delete this line when complete #345.slidb
 
         _id = db.save_data("paths", get_domain_id, path)
-        path = f"'{path}'"  # TODO eso se puede hacaer #456 in funtion third parameter
-        get_path_id = db.get_id("paths", "path", path)
+        # path = f"'{path}'"  # TODO eso se puede hacaer #456 in funtion third parameter
+        # get_path_id = db.get_id("paths", "path", path)
+        sql = f"""SELECT p.id FROM paths p WHERE "path" like '{path}'"""
+        get_path_id = db.execute_query(sql).fetch_one()
+        get_path_id = get_path_id[0]
+
         sql = f"""SELECT id FROM links l WHERE l.title_id = {title_id} AND l.path_id = {get_path_id}"""
         # todo: aqui tambien se puede filtrar por parent_id
 
-        if id_paste := db.execute_query(sql):
+        if id_paste := db.execute_query(sql).fetch_one():
         # _id_paste = db.execute_query(sql)
-            id_paste = id_paste.fetch_one()[0]
+            id_paste = id_paste[0]
             print(id_paste)
         else:
             try:
@@ -828,11 +843,19 @@ def save_links_in_db(**kwargs):
             netloc = urlparse(link).netloc
             path = link.split(netloc)[1]
             db.save_data("domains", "cloud", netloc, name_domain)
-            netloc = f"'{netloc}'"  # Agregar comillas a la variable netloc
-            get_domain_id = db.get_id("domains", "host", netloc)
+            # netloc = f"'{netloc}'"  # Agregar comillas a la variable netloc
+            # get_domain_id = db.get_id("domains", "host", netloc)
+            sql = f"""SELECT d.id FROM domains d WHERE "host" like '{netloc}'"""
+            get_domain_id = db.execute_query(sql).fetch_one()
+            get_domain_id = get_domain_id[0]
+
             _id = db.save_data("paths", get_domain_id, path)
-            path = f"'{path}'"  # Agregar comillas a la variable path
-            get_path_id = db.get_id("paths", "path", path)
+            # path = f"'{path}'"  # Agregar comillas a la variable path
+            # get_path_id = db.get_id("paths", "path", path)
+            sql = f"""SELECT p.id FROM paths p WHERE "path" like '{path}'"""
+            get_path_id = db.execute_query(sql).fetch_one()
+            get_path_id = get_path_id[0]
+
             db.save_data(
                 "links",
                 title_id,

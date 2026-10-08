@@ -108,7 +108,9 @@ class Querys:
         sql = f"""SELECT id FROM {table} WHERE {colunm} = {_id}"""
         print(sql)
         db.exe(sql)
-        return db.fetch_one()[0]
+        if id := db.fetch_one():
+            return id[0]
+        return None
     def get_name(self, table, colunm, _name):
         sql = f"""SELECT id FROM {table} WHERE {colunm} = '{_name}'"""
         db.exe(sql)
