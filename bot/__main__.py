@@ -25,6 +25,7 @@ from telegram.ext import (  # ConversationHandler,; MessageHandler,;
 from bot import LOGGER, db, log_filename
 
 from .core.config_manager import Config
+from .helper.telegram_helper.bot_commands import BotCommands
 
 Config.load()
 # from bot.Config import HOST, NO_IMAGE, URL_IMAGE
@@ -1406,22 +1407,22 @@ def main():
     # )
     app = ApplicationBuilder().token(Config.BOT_TOKEN).persistence(persistence).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("movie", post_movie))
-    app.add_handler(CommandHandler("show", post_tv))
-    app.add_handler(CommandHandler("info", post_info))
-    app.add_handler(CommandHandler("ping", ping))
-    app.add_handler(CommandHandler("log", send_log))
-    app.add_handler(CommandHandler("i", get_info_message))
-    app.add_handler(CommandHandler("save", save_files))
-    app.add_handler(CommandHandler("list", show_list_files))
-    app.add_handler(CommandHandler("send", send_list_files))
-    app.add_handler(CommandHandler("clean", clean_list_files))
-    app.add_handler(CommandHandler("add_cloud", add_cloud))
+    app.add_handler(CommandHandler(BotCommands.StartCommand, start))
+    app.add_handler(CommandHandler(BotCommands.MovieCommand, post_movie))
+    app.add_handler(CommandHandler(BotCommands.ShowCommand, post_tv))
+    app.add_handler(CommandHandler(BotCommands.InfoCommand, post_info))
+    app.add_handler(CommandHandler(BotCommands.PingCommand, ping))
+    app.add_handler(CommandHandler(BotCommands.LogCommand, send_log))
+    app.add_handler(CommandHandler(BotCommands.ICommand, get_info_message))
+    app.add_handler(CommandHandler(BotCommands.SaveCommand, save_files))
+    app.add_handler(CommandHandler(BotCommands.ListCommand, show_list_files))
+    app.add_handler(CommandHandler(BotCommands.SendCommand, send_list_files))
+    app.add_handler(CommandHandler(BotCommands.CleanCommand, clean_list_files))
+    app.add_handler(CommandHandler(BotCommands.AddCloudCommand, add_cloud))
     # app.add_handler(CommandHandler("add_origins", add_origins))
-    app.add_handler(CommandHandler("add_paths", add_paths))
-    app.add_handler(CommandHandler("edit", edit_message_command))
-    app.add_handler(CommandHandler("add", add_cloud_links))
+    app.add_handler(CommandHandler(BotCommands.AddPathsCommand, add_paths))
+    app.add_handler(CommandHandler(BotCommands.EditCommand, edit_message_command))
+    app.add_handler(CommandHandler(BotCommands.AddCommand, add_cloud_links))
 
     # app.add_handler(
     #     MessageHandler(filters.UpdateType.CHANNEL_POST, handle_channel_post)
@@ -1434,8 +1435,8 @@ def main():
     )
 
     movie_handler = MovieSearchHandler()
-    app.add_handler(CommandHandler("change", movie_handler.change))
-    app.add_handler(CommandHandler("search", movie_handler.search_movie))
+    app.add_handler(CommandHandler(BotCommands.ChangeCommand, movie_handler.change))
+    app.add_handler(CommandHandler(BotCommands.SearchCommand, movie_handler.search_movie))
     app.add_handler(CallbackQueryHandler(movie_handler.flip, pattern="^(nex|pre|clo)$"))
     app.add_handler(CallbackQueryHandler(movie_handler.select, pattern="^sel$"))
 
