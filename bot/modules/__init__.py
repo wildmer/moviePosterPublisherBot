@@ -43,7 +43,6 @@ from bot.helpers.telegram_helper.msg_utils import (  # sendMarkup,
     send_photo,
 )
 
-from ..core.startup import load_settings
 from .the_movie_db import TheMovieDB
 from .web import (
     download_url,
@@ -231,17 +230,17 @@ def posst(media_type: str, file_path: str, update, context):
 async def post(
     media_type: str, file_path: str, update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    data = read_file(media_type, file_path)
+    data : dict = read_file(media_type, file_path)
 
     # url_image = f"{URL_IMAGE}{data['poster_path']}"
-    id_themoviedb = data["id"]
+    id_themoviedb : int = data["id"]
     original_title = str(data.get("original_title") or data.get("original_name"))
     tilte = str(data.get("title") or data.get("name"))
-    year = data.get("release_date") or data.get("first_air_date", [])[:4]
+    year : str = data.get("release_date") or data.get("first_air_date", [])[:4]
 
     msg = f'<b>{original_title} ({year})</b>\n<i>{tilte}</i>\n<a href="https://www.themoviedb.org/{media_type}/{id_themoviedb}">themoviedb</a>'
 
-    msg = escape_markdown(msg, version=1)
+    msg : str = escape_markdown(msg, version=1)
     image = download_url(f"{data['poster_path']}")
     msg_result = await send_photo(
         update, context, image, msg, parse_mode="HTML", chat_id=Config.CHANNEL_ID
@@ -250,16 +249,14 @@ async def post(
         f"Se publico {media_type}/{id_themoviedb} correctamente el mensaje con id: {msg_result.message_id} y chat_id: {msg_result.chat_id}"
     )
     # return
-    print("POST ID:", msg_result)
-    # print("POST ID:", msg_result.message_id)
-    # print("CHAT ID:", msg_result.chat.id)
+    # print("POST ID:", msg_result)
     # discussion = await context.bot.get_chat(chat_id=msg_result.chat.id)
-    try:
-        chat = await context.bot.get_chat(msg_result.chat.id)
-        print(chat)
-    except Exception as e:
-        LOGGER.error(f"Error al obtener el chat: {e}")
-        return
+    # try:
+    #     chat = await context.bot.get_chat(msg_result.chat.id)
+    #     print(chat)
+    # except Exception as e:
+    #     LOGGER.error(f"Error al obtener el chat: {e}")
+    #     return
     # print("CHANNEL ID:", chat.id)
     # print("LINKED CHAT ID:", chat.linked_chat_id)
 
@@ -273,28 +270,16 @@ async def post(
     # print("DISCUSSION:", discussion)
     _ = {
         "id_channel": Config.CHANNEL_ID,
-        "type": "channel",
+        "type": msg_result.chat.type, # "channel",
         "name": msg_result.chat.title or "",
         "channel_message_id": msg_result.message_id,
     }
     db.save_data("chats", _["id_channel"], _["type"], _["name"])
-    # id_c = db.get_id("channels", "telegram_id", msg_result.chat_id)
-    print(_)
-    print(id_themoviedb)
-    # db.save_data(
-    # "posts",
-    # _["id_channel"],
-    # _["channel_message_id"],
-    # id_themoviedb,
-    # columns=["channel_chat_id", "channel_message_id", "title_id"],
-    # )
 
-    # db.get_id("posts", "telegram_post_id",  msg_result.chat_id)
-    # print(data)
-    # db.save_data()
+
     genres = data["genres"]
     external_ids = data["external_ids"]
-    # print(external_ids)
+
     if media_type == "movie":
         db.save_data(
             "titles",
@@ -319,11 +304,7 @@ async def post(
 
     sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id ) VALUES ({_["id_channel"]}, {_["channel_message_id"]}, {id_themoviedb})"""
     db.execute_query(sql)
-    # sql = f"""SELECT id FROM posts WHERE channel_chat_id = {Config.CHANNEL_ID} AND channel_message_id = {msg_result.message_id};"""
-    # _x = db.execute_query(sql)
-    # _post_id = _x.fetch_one()[0]
 
-    # db.save_data("post_items", _post_id, data["id"], columns=["post_id", "title_id"])
 
 
 def get_link(update) -> str:
