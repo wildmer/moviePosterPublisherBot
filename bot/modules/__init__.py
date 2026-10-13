@@ -238,7 +238,8 @@ async def post(
     tilte = str(data.get("title") or data.get("name"))
     year : str = data.get("release_date") or data.get("first_air_date", [])[:4]
 
-    msg = f'<b>{original_title} ({year})</b>\n<i>{tilte}</i>\n<a href="https://www.themoviedb.org/{media_type}/{id_themoviedb}">themoviedb</a>'
+    url_tmdb = f"https://www.themoviedb.org/{media_type}/{id_themoviedb}"
+    msg = f'<b>{original_title} ({year})</b>\n<i>{tilte}</i>\n<a href="{url_tmdb}">themoviedb</a>'
 
     msg : str = escape_markdown(msg, version=1)
     image = download_url(f"{data['poster_path']}")
@@ -455,38 +456,38 @@ def send_page_no(update, context):
     return reply_markup
 
 
-async def search_movie(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args: list[str] = update.message.text.split(" ")
-    title = " ".join(args[1:])
+# async def search_movie(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     args: list[str] = update.message.text.split(" ")
+#     title = " ".join(args[1:])
 
-    global tmdb_t, list_results, pages
-    tmdb_t = TheMovieDB(title, "")
-    tmdb_t.setGetResults(True)
-    data_media = tmdb_t.search_movies()
+#     global tmdb_t, list_results, pages
+#     tmdb_t = TheMovieDB(title, "")
+#     tmdb_t.setGetResults(True)
+#     data_media = tmdb_t.search_movies()
 
-    if data_media:
-        list_results = data_media["data"]
-        pages = len(list_results)
-        dt_p = list_results[PAGE_NO - 1]
-        mk = send_page_no(update, context)
-        file_name = download_url(f"{dt_p['poster_path']}")
-        title = dt_p["original_title"]
-        year = dt_p["release_date"]
+#     if data_media:
+#         list_results = data_media["data"]
+#         pages = len(list_results)
+#         dt_p = list_results[PAGE_NO - 1]
+#         mk = send_page_no(update, context)
+#         file_name = download_url(f"{dt_p['poster_path']}")
+#         title = dt_p["original_title"]
+#         year = dt_p["release_date"]
 
-        # sendMarkup(file_name, f'{dt_p["original_title"]}', update, mk)
-        # send_photo(file_name, update, f"{title} ({year})", reply_markup=mk)
-        msg = escape_markdown(f"{title} ({year})")
-        # print(f"msg: {msg}")
-        await send_photo(
-            update, context, file_name, msg, reply_markup=mk, parse_mode="MarkdownV2"
-        )
+#         # sendMarkup(file_name, f'{dt_p["original_title"]}', update, mk)
+#         # send_photo(file_name, update, f"{title} ({year})", reply_markup=mk)
+#         msg = escape_markdown(f"{title} ({year})")
+#         # print(f"msg: {msg}")
+#         await send_photo(
+#             update, context, file_name, msg, reply_markup=mk, parse_mode="MarkdownV2"
+#         )
 
-        if not PAGE_NO >= pages:
-            LOGGER.info(f"Se reliza pre descarga de la imagen {PAGE_NO + 1}")
-            download_url(f"{list_results[PAGE_NO]['poster_path']}")
+#         if not PAGE_NO >= pages:
+#             LOGGER.info(f"Se reliza pre descarga de la imagen {PAGE_NO + 1}")
+#             download_url(f"{list_results[PAGE_NO]['poster_path']}")
 
-    else:
-        print("No se encontraron resultados.")
+#     else:
+#         print("No se encontraron resultados.")
 
 
 async def select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
