@@ -125,8 +125,8 @@ class Querys:
         db.exe(sql)
         return db.fetch_one()
 
-    def execute_query(self, sql):
-        db.exe(sql)
+    def execute_query(self, sql, params=None):
+        db.exe(sql, params)
         return db
 
     def test(self):
