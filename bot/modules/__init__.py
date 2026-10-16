@@ -277,17 +277,15 @@ async def post(
     }
     db.save_data("chats", _["id_channel"], _["type"], _["name"])
 
-
     genres = data["genres"]
     external_ids = data["external_ids"]
 
     if media_type == "movie":
-        db.save_data(
-            "titles",
+        values = (
             data["id"],
             media_type,
             data["original_title"],
-            data["title"],
+            tilte,
             data["original_language"],
             data["tagline"],
             data["release_date"],
@@ -296,16 +294,27 @@ async def post(
             data["vote_average"],
             data["vote_count"],
         )
-        for g in genres:
-            db.save_data("genres", g["id"], g["name"])
-            db.save_data("title_genres", data["id"], g["id"])
 
-        for ex in external_ids.items():
-            db.save_data("external_ids", data["id"], ex[0], ex[1])
+        param = "?"
+        params = ""
+        if size := len(values) >= 1:
+            params = "?, " * (size - 1)
+
+        total_params = params + param
+
+        sql = f"""INSERT INTO titles ( id, media_type, original_title, title, original_language, tagline, release_date, overview, runtime, vote_average, vote_count ) VALUES ({total_params})"""
+        db.execute_query(sql, values)
+
+
+    for g in genres:
+        db.save_data("genres", g["id"], g["name"])
+        db.save_data("title_genres", data["id"], g["id"])
+
+    for ex in external_ids.items():
+        db.save_data("external_ids", data["id"], ex[0], ex[1])
 
     sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id ) VALUES ({_["id_channel"]}, {_["channel_message_id"]}, {id_themoviedb})"""
     db.execute_query(sql)
-
 
 
 def get_link(update) -> str:
