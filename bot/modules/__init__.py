@@ -271,7 +271,7 @@ async def post(
     # print("DISCUSSION:", discussion)
     _ = {
         "id_channel": Config.CHANNEL_ID,
-        "type": msg_result.chat.type, # "channel",
+        "type": str(msg_result.chat.type), # "channel",
         "name": msg_result.chat.title or "",
         "channel_message_id": msg_result.message_id,
     }
@@ -280,31 +280,36 @@ async def post(
     genres = data["genres"]
     external_ids = data["external_ids"]
 
-    if media_type == "movie":
-        values = (
-            data["id"],
-            media_type,
-            data["original_title"],
-            tilte,
-            data["original_language"],
-            data["tagline"],
-            data["release_date"],
-            data["overview"],
-            data["runtime"],
-            data["vote_average"],
-            data["vote_count"],
-        )
+    number_of_seasons = ''
+    number_of_episodes = ''
 
-        param = "?"
-        params = ""
-        if size := len(values) >= 1:
-            params = "?, " * (size - 1)
+    values = [
+        data["id"],
+        media_type,
+        data["original_title"],
+        tilte,
+        data["original_language"],
+        data["tagline"],
+        data["release_date"],
+        data["overview"],
+        data["runtime"],
+        data["vote_average"],
+        data["vote_count"]
+    ]
 
-        total_params = params + param
+    if media_type not in ("movie", "tv"):
+        LOGGER.warning("No es tv o movie")
+        return
 
-        sql = f"""INSERT INTO titles ( id, media_type, original_title, title, original_language, tagline, release_date, overview, runtime, vote_average, vote_count ) VALUES ({total_params})"""
-        db.execute_query(sql, values)
+    params = ""
+    size = len(values)
+    if size >= 1:
+        params = "?, " * (size - 1)
 
+    total_params = params + "?"
+
+    sql = f"""INSERT INTO titles ( id, media_type, original_title, title, original_language, tagline, release_date, overview, runtime, {number_of_seasons} {number_of_episodes} vote_average, vote_count ) VALUES ({total_params})"""
+    db.execute_query(sql, tuple(values))
 
     for g in genres:
         db.save_data("genres", g["id"], g["name"])
