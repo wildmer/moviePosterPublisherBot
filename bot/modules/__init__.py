@@ -236,10 +236,10 @@ async def post(
     id_themoviedb : int = data["id"]
     original_title = str(data.get("original_title") or data.get("original_name"))
     tilte = str(data.get("title") or data.get("name"))
-    year : str = data.get("release_date") or data.get("first_air_date", [])[:4]
+    year : str = data.get("release_date") or data.get("first_air_date", [])
 
     url_tmdb = f"https://www.themoviedb.org/{media_type}/{id_themoviedb}"
-    msg = f'<b>{original_title} ({year})</b>\n<i>{tilte}</i>\n<a href="{url_tmdb}">themoviedb</a>'
+    msg = f'<b>{original_title} ({year[:4]})</b>\n<i>{tilte}</i>\n<a href="{url_tmdb}">themoviedb</a>'
 
     msg : str = escape_markdown(msg, version=1)
     image = download_url(f"{data['poster_path']}")
@@ -282,17 +282,17 @@ async def post(
 
     number_of_seasons = ''
     number_of_episodes = ''
+    runtime = "runtime, "
 
     values = [
         data["id"],
         media_type,
-        data["original_title"],
+        original_title,
         tilte,
         data["original_language"],
         data["tagline"],
-        data["release_date"],
+        year,
         data["overview"],
-        data["runtime"],
         data["vote_average"],
         data["vote_count"]
     ]
@@ -300,6 +300,8 @@ async def post(
     if media_type not in ("movie", "tv"):
         LOGGER.warning("No es tv o movie")
         return
+    elif  media_type == 'movie':
+        values.insert(8, data["runtime"])
 
     params = ""
     size = len(values)
@@ -308,8 +310,8 @@ async def post(
 
     total_params = params + "?"
 
-    sql = f"""INSERT INTO titles ( id, media_type, original_title, title, original_language, tagline, release_date, overview, runtime, {number_of_seasons} {number_of_episodes} vote_average, vote_count ) VALUES ({total_params})"""
-    db.execute_query(sql, tuple(values))
+    sql = f"""INSERT INTO titles ( id, media_type, original_title, title, original_language, tagline, release_date, overview, {runtime} {number_of_seasons} {number_of_episodes} vote_average, vote_count ) VALUES ({total_params})"""
+    db.execute_query(sql, values)
 
     for g in genres:
         db.save_data("genres", g["id"], g["name"])
