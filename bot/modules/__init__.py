@@ -302,6 +302,13 @@ async def post(
         return
     elif  media_type == 'movie':
         values.insert(8, data["runtime"])
+    elif media_type == 'tv':
+        number_of_seasons = "number_of_seasons, "
+        number_of_episodes = "number_of_episodes, "
+        runtime = ''
+
+        values.insert(8, data["number_of_episodes"])
+        values.insert(8, data["number_of_seasons"])
 
     params = ""
     size = len(values)
