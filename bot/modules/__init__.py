@@ -853,10 +853,10 @@ def save_links_in_db(**kwargs):
 async def add_cloud_links(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args: list[str] = update.message.text.split("\n")
     # print(parse_message(update.message))
-    msg_forward_origin = update.message.reply_to_message.forward_origin
+    # msg_forward_origin = 
     # print(up_message)
     # print(msg_forward_origin)
-    if msg_forward_origin:
+    if msg_forward_origin := update.message.reply_to_message.forward_origin:
         channel_chat_id = msg_forward_origin.chat.id
         extract_message_id = msg_forward_origin.message_id
 
