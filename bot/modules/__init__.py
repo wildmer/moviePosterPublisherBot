@@ -327,7 +327,13 @@ async def post(
     for ex in external_ids.items():
         db.save_data("external_ids", data["id"], ex[0], ex[1])
 
-    sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id ) VALUES ({_["id_channel"]}, {_["channel_message_id"]}, {id_themoviedb})"""
+    sql = f"SELECT id FROM posts p WHERE p.channel_chat_id = {_['id_channel']} AND p.channel_message_id = {_['channel_message_id']} AND p.discussion_chat_id IS NULL AND p.discussion_message_id  IS NULL;"
+    p_id = db.execute_query(sql).fetch_one()[0]
+
+    if p_id:
+        sql = f"""UPDATE posts SET title_id = {id_themoviedb} WHERE id = {p_id};"""
+    else:
+        sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id ) VALUES ({_["id_channel"]}, {_["channel_message_id"]}, {id_themoviedb})"""
     db.execute_query(sql)
 
 
