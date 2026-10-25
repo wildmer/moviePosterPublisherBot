@@ -1,3 +1,5 @@
+import asyncio
+
 from telegram.ext import (  # ConversationHandler,; MessageHandler,;
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -36,5 +38,5 @@ class TgClient:
 
         # Start the Bot
         LOGGER.info("Bot Started!")
-
+        asyncio.set_event_loop(asyncio.new_event_loop())
         cls.app.run_polling()
