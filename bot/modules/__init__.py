@@ -847,14 +847,10 @@ def save_links_in_db(**kwargs):
             get_path_id = db.execute_query(sql).fetch_one()
             get_path_id = get_path_id[0]
 
-            db.save_data(
-                "links",
-                title_id,
-                get_path_id,
-                "",
-                id_paste,
-                columns=["title_id", "path_id", "name", "parent_id"],
-            )
+            _name=""
+            sql = f"""INSERT INTO links ( title_id, path_id, name, parent_id )VALUES ({title_id}, {get_path_id}, {_name}, {id_paste})"""
+            db.execute_query(sql)
+
             msg_for_send += f"<a href='{link}'>{name_domain}</a>{sep}"
 
     return msg_for_send
