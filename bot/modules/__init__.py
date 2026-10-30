@@ -757,7 +757,10 @@ def save_links_in_db(**kwargs):
     # esto con formato markdown, con el name domain como texto del link, y el netloc con el path como url del link, y si hay links en la nube, agregarlos tambien con el mismo formato
 
     # msg_for_send = f"<b>Links:</b>\n"
-    msg_for_send += f"<a href='{link_origins}'>{name_domain}</a>\n"
+
+    msg_for_send += (
+        f"[{escape_markdown(name_domain)}]({escape_markdown(link_origins)})\n"
+    )
 
     # save paste
     name_domain, netloc = urlparse(paste).hostname, urlparse(paste).netloc
@@ -823,7 +826,7 @@ def save_links_in_db(**kwargs):
     # id_paste = _id_paste.fetch_one()[0]
     # print(id_path)
     # todo no esta registradno los links en parent id # *corregido
-    msg_for_send += f"<a href='{paste}'>{name_past}</a>\n\n"
+    msg_for_send += f"[{escape_markdown(name_past)}]({escape_markdown(paste)})\n\n"
 
     if links_cloud:
         print(len(links_cloud))
@@ -851,7 +854,9 @@ def save_links_in_db(**kwargs):
             sql = f"""INSERT INTO links ( title_id, path_id, name, parent_id )VALUES ({title_id}, {get_path_id}, {_name}, {id_paste})"""
             db.execute_query(sql)
 
-            msg_for_send += f"<a href='{link}'>{name_domain}</a>{sep}"
+            msg_for_send += (
+                f"[{escape_markdown(name_domain)}]({escape_markdown(link)}){sep}"
+            )
 
     return msg_for_send
 
@@ -920,7 +925,7 @@ async def add_cloud_links(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 update,
                 context,
                 msg_for_send,
-                parse_mode="HTML",
+                parse_mode="MarkdownV2",
                 reply_to_message=True,
                 reply_to_message_id=extract_message_thread_id,
                 reply_to_message_chat_id=chat_id,
