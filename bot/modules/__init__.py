@@ -723,7 +723,10 @@ def save_links_in_db(**kwargs):
     # tag = kwargs["tag"]
     msg_for_send = ""
 
-    name_past = scrap_paste(paste)
+    if "usuariosvip" in paste:
+        name_past = "VIP"
+    else:
+        name_past = scrap_paste(paste)
     if not name_past:
         print("detener")
         exit()
@@ -829,10 +832,27 @@ def save_links_in_db(**kwargs):
     msg_for_send += f"[{escape_markdown(name_past)}]({escape_markdown(paste)})\n\n"
 
     if links_cloud:
+        from datetime import datetime
+        now = datetime.now()
         print(len(links_cloud))
         end_link = links_cloud[-1]
         for link in links_cloud:
             sep = " - " if link != end_link else "\n"
+            sep = escape_markdown(sep)
+            is_dead = False
+            is_dead_mk = ""
+            dead_row = ""
+            # dead_value = ""
+
+            if link[0] == "*":
+                link = link[1:]
+                is_dead = True
+                is_dead_mk = "~"
+                dead_row = ", is_active, dead_at"
+                now = now.timestamp()
+                # dead_value = f",0,{str(now).replace(" ", "/")}"
+                # values.append()
+
             name_domain = urlparse(link).hostname
             netloc = urlparse(link).netloc
             path = link.split(netloc)[1]
@@ -850,12 +870,24 @@ def save_links_in_db(**kwargs):
             get_path_id = db.execute_query(sql).fetch_one()
             get_path_id = get_path_id[0]
 
-            _name=""
-            sql = f"""INSERT INTO links ( title_id, path_id, name, parent_id )VALUES ({title_id}, {get_path_id}, {_name}, {id_paste})"""
-            db.execute_query(sql)
+            _name = ""
+            values = [title_id, get_path_id, id_paste]
+            if is_dead:
+                values.append(1)
+                values.append(now)
+
+            params = ""
+            size = len(values)
+            if size >= 1:
+                params = "?, " * (size - 1)
+
+            total_params = params + "?"
+            sql = f"""INSERT INTO links ( title_id, path_id, parent_id {dead_row}) VALUES ({total_params})"""
+            LOGGER.info(sql)
+            db.execute_query(sql, values)
 
             msg_for_send += (
-                f"[{escape_markdown(name_domain)}]({escape_markdown(link)}){sep}"
+                f"{is_dead_mk}[{escape_markdown(name_domain)}]({escape_markdown(link)}){is_dead_mk}{sep}"
             )
 
     return msg_for_send
