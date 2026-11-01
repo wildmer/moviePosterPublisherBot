@@ -29,9 +29,16 @@ def scrap_paste(url) -> str:
 
     div = soup.find("div", {"class": "content-wrapper"})
     # print(div)
-    title = soup.find("h2")
-    # print(title.text.strip())
-    return title.text.strip()
+    title = soup.find("h2").get_text(strip=True)
+    # return title.text.strip()
+    element = soup.find("span", string=lambda text: text and "[copy]" in text)
+    # print(element.get_text())
+    password = None
+    if element:
+        password = element.get_text(strip=True)
+        password = password.removeprefix("[copy]").removesuffix("[/copy]")
+
+    return title, password
 
 
 def scrap_url(url) -> dict:

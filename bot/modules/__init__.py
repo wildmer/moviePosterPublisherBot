@@ -724,9 +724,9 @@ def save_links_in_db(**kwargs):
     msg_for_send = ""
 
     if "usuariosvip" in paste:
-        name_past = "VIP"
+        name_past, password = "VIP", None
     else:
-        name_past = scrap_paste(paste)
+        name_past, password = scrap_paste(paste)
     if not name_past:
         print("detener")
         exit()
@@ -847,9 +847,6 @@ def save_links_in_db(**kwargs):
             if link[0] == "*":
                 link = link[1:]
                 is_dead = True
-                is_dead_mk = "~"
-                dead_row = ", is_active, dead_at"
-                now = now.timestamp()
                 # dead_value = f",0,{str(now).replace(" ", "/")}"
                 # values.append()
 
@@ -872,7 +869,13 @@ def save_links_in_db(**kwargs):
 
             _name = ""
             values = [title_id, get_path_id, id_paste]
+            if password:
+                dead_row += ", name"
+                values.append(password)
             if is_dead:
+                is_dead_mk = "~"
+                dead_row += ", is_active, dead_at"
+                now = now.timestamp()
                 values.append(1)
                 values.append(now)
 
@@ -889,6 +892,9 @@ def save_links_in_db(**kwargs):
             msg_for_send += (
                 f"{is_dead_mk}[{escape_markdown(name_domain)}]({escape_markdown(link)}){is_dead_mk}{sep}"
             )
+    if password:
+        password = escape_markdown(password)
+        msg_for_send += f"```{password}```"
 
     return msg_for_send
 
