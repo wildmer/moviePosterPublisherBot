@@ -24,15 +24,12 @@ def scrap_paste(url) -> str:
     # Obtener la codificación de la respuesta
     encoding = response.encoding
 
-    # _infoScrap = {}
     soup = BeautifulSoup(response.content, "html.parser", from_encoding=encoding)
 
-    div = soup.find("div", {"class": "content-wrapper"})
-    # print(div)
     title = soup.find("h2").get_text(strip=True)
-    # return title.text.strip()
+
     element = soup.find("span", string=lambda text: text and "[copy]" in text)
-    # print(element.get_text())
+
     password = None
     if element:
         password = element.get_text(strip=True)
