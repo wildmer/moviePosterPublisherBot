@@ -34,6 +34,9 @@ def scrap_paste(url) -> str:
     if element:
         password = element.get_text(strip=True)
         password = password.removeprefix("[copy]").removesuffix("[/copy]")
+    if password == "www.latinomegahd.net":
+        LOGGER.info("Se obtuvo la contrseña, pero se omite ya que es la contraseña conocida")
+        password = None
 
     return title, password
 
