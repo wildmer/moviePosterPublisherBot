@@ -20,6 +20,7 @@ class BotCommands:
     AddCommand = f"add{i}"
 
     SearchCommand = f"search{i}"
+    Select2Command = f"select2{i}"
     ChangeCommand = f"change{i}"
 
     AddCloudCommand = f"add_cloud{i}"

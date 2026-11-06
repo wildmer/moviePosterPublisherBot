@@ -709,6 +709,147 @@ async def send_list_files(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
+async def select2(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args: list[str] = update.message.text.split("\n")
+    # print(parse_message(update.message))
+    # msg_forward_origin = 
+    # print(up_message)
+    # print(msg_forward_origin)
+    message_thread_id = update.message.message_thread_id
+    group_chat_id = update.message.sender_chat.id
+    # print(parse_message(update.message))
+    # return
+    if reply_to_message := update.message.reply_to_message:
+        caption_entities = reply_to_message.caption_entities
+        if len(caption_entities) == 3:
+            url_tmdb : str|None = caption_entities[2]['url']
+            *_, media_type, tmdb_id, = url_tmdb.split("/")
+
+        if msg_forward_origin := reply_to_message.forward_origin:
+            channel_chat_id = msg_forward_origin.chat.id
+            extract_message_id = msg_forward_origin.message_id
+
+            command = args[0]
+            if not command.startswith("/"):
+                print("no es comando")
+                return
+    data : dict = read_file(media_type, tmdb_id)
+    if not data:
+        print("no data")
+        return
+
+    print(
+        message_thread_id,
+        group_chat_id,
+        media_type,
+        tmdb_id,
+        channel_chat_id,
+        extract_message_id 
+    )
+    id_themoviedb : int = data["id"]
+    original_title = str(data.get("original_title") or data.get("original_name"))
+    tilte = str(data.get("title") or data.get("name"))
+    year : str = data.get("release_date") or data.get("first_air_date", [])
+
+    genres = data["genres"]
+    external_ids = data["external_ids"]
+
+    number_of_seasons = ''
+    number_of_episodes = ''
+    runtime = "runtime, "
+
+    values = [
+        data["id"],
+        media_type,
+        original_title,
+        tilte,
+        data["original_language"],
+        data["tagline"],
+        year,
+        data["overview"],
+        data["vote_average"],
+        data["vote_count"]
+    ]
+
+    if media_type not in ("movie", "tv"):
+        LOGGER.warning("No es tv o movie")
+        return
+    elif  media_type == 'movie':
+        values.insert(8, data["runtime"])
+    elif media_type == 'tv':
+        number_of_seasons = "number_of_seasons, "
+        number_of_episodes = "number_of_episodes, "
+        runtime = ''
+
+        values.insert(8, data["number_of_episodes"])
+        values.insert(8, data["number_of_seasons"])
+
+    params = ""
+    size = len(values)
+    if size >= 1:
+        params = "?, " * (size - 1)
+
+    total_params = params + "?"
+
+    sql = f"""INSERT INTO titles ( id, media_type, original_title, title, original_language, tagline, release_date, overview, {runtime} {number_of_seasons} {number_of_episodes} vote_average, vote_count ) VALUES ({total_params})"""
+    db.execute_query(sql, values)
+
+    _ = {
+        "id_channel": Config.CHANNEL_ID,
+        # "type": str(msg_result.chat.type),  # "channel",
+        # "name": msg_result.chat.title or "",
+        # "channel_message_id": msg_result.message_id,
+    }
+
+    for g in genres:
+        db.save_data("genres", g["id"], g["name"])
+        db.save_data("title_genres", data["id"], g["id"])
+
+    for ex in external_ids.items():
+        db.save_data("external_ids", data["id"], ex[0], ex[1])
+
+    sql = f"SELECT p.id FROM posts p WHERE p.channel_chat_id = {_['id_channel']} AND p.channel_message_id = {extract_message_id} AND p.discussion_chat_id = '' AND p.discussion_message_id  = '';"
+    try:
+        p_id = db.execute_query(sql).fetch_one()[0]
+    except:
+        p_id = None
+        LOGGER.info("no id de post")
+
+
+
+    if p_id:
+        sql = f"""UPDATE posts SET title_id = {id_themoviedb} WHERE id = {p_id};"""
+        db.execute_query(sql)
+    else:
+        values = [_["id_channel"], extract_message_id, id_themoviedb, group_chat_id, message_thread_id  ]
+        params = ""
+        size = len(values)
+        if size >= 1:
+            params = "?, " * (size - 1)
+
+        total_params = params + "?"
+        sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id, discussion_chat_id, discussion_message_id ) VALUES ({total_params})"""
+        db.execute_query(sql, values)
+
+    url_tmdb = f"https://www.themoviedb.org/{media_type}/{id_themoviedb}"
+    msg = f'<b>{original_title} ({year[:4]})</b>\n<i>{tilte}</i>\n<a href="{url_tmdb}">themoviedb</a>'
+
+    msg: str = escape_markdown(msg, version=1)
+    image = download_url(f"{data['poster_path']}")
+    msg_result = await send_photo(
+        update, context, image, msg, parse_mode="HTML", chat_id=Config.OWNER_ID
+    )
+
+    # db.save_data("chats", message.chat.id, "group", discussion_title)
+    # post_id = db.get_id("posts", "channel_message_id", channel_message_id)
+    # slq = f"""UPDATE posts
+    # SET     = {discussion_chat_id},
+    #      = {discussion_message_id}
+    # WHERE channel_chat_id    = {channel_id}
+    # AND channel_message_id = {channel_message_id};"""
+    # db.execute_query(slq)
+
+
 def parse_message(msg):
     _json = msg.to_dict()
     return json.dumps(_json, indent=3, default=str, ensure_ascii=False)

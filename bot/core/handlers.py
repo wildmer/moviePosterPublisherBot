@@ -30,6 +30,9 @@ def add_handlers():
             handle_discussion_message,
         )
     )
+    TgClient.app.add_handler(
+        CommandHandler(BotCommands.Select2Command, select2)
+    )
 
     movie_handler = MovieSearchHandler()
     TgClient.app.add_handler(CommandHandler(BotCommands.ChangeCommand, movie_handler.change))
