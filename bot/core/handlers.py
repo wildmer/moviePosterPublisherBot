@@ -1,4 +1,4 @@
-from ..helper.telegram_helper.bot_commands import BotCommands
+from ..helpers.telegram_helper.bot_commands import BotCommands
 from ..modules import *
 from .telegram_manager import TgClient
 
