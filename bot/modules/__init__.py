@@ -1338,6 +1338,13 @@ async def handle_discussion_message(update, context):
     AND channel_message_id = {channel_message_id};"""
     db.execute_query(slq)
 
+    destination_chat_id = Config.OWNER_ID
+    source_chat_id = channel_id
+    message_id = channel_message_id
+    await context.bot.forward_message(
+        chat_id=destination_chat_id, from_chat_id=source_chat_id, message_id=message_id
+    )
+
 
 #     return
 #     # TODO: esta estructura del codigo ya no es necesaria
