@@ -902,9 +902,9 @@ def save_links_in_db(**kwargs):
 
     # msg_for_send = f"<b>Links:</b>\n"
 
-    msg_for_send += (
-        f"[{escape_markdown(name_domain)}]({escape_markdown(link_origins)})\n"
-    )
+    # msg_for_send += (
+    #     f"[{escape_markdown(name_domain)}]({escape_markdown(link_origins)})\n"
+    # )
 
     # save paste
     name_domain, netloc = urlparse(paste).hostname, urlparse(paste).netloc
@@ -970,7 +970,11 @@ def save_links_in_db(**kwargs):
     # id_paste = _id_paste.fetch_one()[0]
     # print(id_path)
     # todo no esta registradno los links en parent id # *corregido
-    msg_for_send += f"[{escape_markdown(name_past)}]({escape_markdown(paste)})\n\n"
+
+    msg_for_send += f"[{escape_markdown(name_past)}]({escape_markdown(paste)})\n"
+    msg_for_send += (
+        f"[{escape_markdown(name_domain)}]({escape_markdown(link_origins)})\n\n"
+    )
 
     if links_cloud:
         from datetime import datetime
