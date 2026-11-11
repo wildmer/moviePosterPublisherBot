@@ -873,7 +873,7 @@ def save_links_in_db(**kwargs):
         exit()
 
     #  save domain and path
-    name_domain = urlparse(link_origins).hostname
+    name_origin = name_domain = urlparse(link_origins).hostname
     netloc = urlparse(link_origins).netloc
     path = link_origins.split(netloc)[1]
     db.save_data("domains", "origin", netloc, name_domain)
@@ -973,7 +973,7 @@ def save_links_in_db(**kwargs):
 
     msg_for_send += f"[{escape_markdown(name_past)}]({escape_markdown(paste)})\n"
     msg_for_send += (
-        f"[{escape_markdown(name_domain)}]({escape_markdown(link_origins)})\n\n"
+        f"[{escape_markdown(name_origin)}]({escape_markdown(link_origins)})\n\n"
     )
 
     if links_cloud:
