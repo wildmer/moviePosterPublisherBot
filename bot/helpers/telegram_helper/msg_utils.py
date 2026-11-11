@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardMarkup, InputFile
+from telegram import InlineKeyboardMarkup, InputFile, ReactionTypeEmoji, Update
 from telegram._message import Message
 from telegram.constants import ChatAction
 from telegram.error import TelegramError
@@ -242,3 +242,12 @@ async def send_markup(
 #     except Exception as e:
 #         LOGGER.error(str(e))
 #         return
+
+
+async def message_reaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.set_message_reaction(
+        chat_id=update.effective_chat.id,
+        message_id=update.message.message_id,
+        reaction=[ReactionTypeEmoji("👍")],
+        is_big=False,  # Cambia a True si quieres la animación grande en pantalla
+    )
