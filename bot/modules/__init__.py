@@ -38,6 +38,7 @@ from bot.helpers.telegram_helper.button_build import ButtonMaker
 from bot.helpers.telegram_helper.msg_utils import (  # sendMarkup,
     delete_message,
     edit_message,
+    message_reaction,
     send_file,
     send_message,
     send_photo,
@@ -1126,7 +1127,9 @@ async def add_cloud_links(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 columns=["post_id", "message_id", "kind"],
             )
 
-            # db.execute_query(sql)
+            await message_reaction(update, context)
+
+    # db.execute_query(sql)
             # return
     return
 
