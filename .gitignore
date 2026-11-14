@@ -18,6 +18,6 @@ log**.txt
 conversationbot
 logs/
 *.sqlite3
-*.sql
+data/*.sql
 *.bak
 data/
