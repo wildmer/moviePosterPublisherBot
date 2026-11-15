@@ -1,5 +1,28 @@
+-- =====================================================================
+-- ESQUEMA v3 — bot de películas/series (SQLite >= 3.24)
+-- ---------------------------------------------------------------------
+-- Cambios vs v2:
+--   * titles: id pasa a ser interno; el id de TMDB vive en tmdb_id con
+--     UNIQUE(media_type, tmdb_id) -> una movie y un tv pueden compartir
+--     id de TMDB sin chocar (los catálogos de TMDB son independientes).
+--   * external_ids: UNIQUE(provider, external_id) de tabla -> índice
+--     único PARCIAL que excluye a 'tmdb' (misma colisión resuelta).
+--     'tmdb' ya no se guarda aquí: la fuente de verdad es titles.tmdb_id.
+--   * posts: CHECK para que discussion_chat_id y discussion_message_id
+--     siempre se llenen juntos.
+--   * Fuera: trg_post_messages_updated (apuntaba a una columna
+--     updated_at que no existe en post_messages) e idx_post_messages_post
+--     (redundante: UNIQUE(post_id, message_id) ya indexa post_id).
+--   * Tablas en orden de dependencias (posts ya no se crea antes que
+--     titles, aunque SQLite lo permitía).
+--
+-- Nota: si vienes de la v2 con datos, NO uses este archivo: aplica
+-- migracion_titles.sql (misma estructura final, conservando tus id).
+-- =====================================================================
+
 PRAGMA foreign_keys = ON;
--- PRAGMA journal_mode = WAL; -- recomendado para un bot con escrituras frecuentes
+PRAGMA journal_mode = WAL;   -- persistente: queda grabado en el archivo .db
+-- En el código del bot, por conexión: PRAGMA busy_timeout = 5000;
 
 -- ============================================================
 -- CHATS: canales y grupos de Telegram.
@@ -12,32 +35,6 @@ CREATE TABLE IF NOT EXISTS chats (
     created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
--- ============================================================
--- POSTS: una publicación en un canal.
---   channel_*    -> para localizar el mensaje en el canal
---   discussion_* -> para localizar el hilo en el grupo vinculado
--- ============================================================
-CREATE TABLE IF NOT EXISTS posts (
-    id                      INTEGER PRIMARY KEY,
-    channel_chat_id         INTEGER NOT NULL,
-    channel_message_id      INTEGER NOT NULL,
-    discussion_chat_id      INTEGER,            -- NULL hasta vincular el grupo
-    discussion_message_id   INTEGER,            -- msg que abre el hilo en el grupo
-    title_id                INTEGER NOT NULL,
-    created_at              TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at              TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (channel_chat_id)    REFERENCES chats(id)  ON DELETE CASCADE,
-    FOREIGN KEY (discussion_chat_id) REFERENCES chats(id)  ON DELETE SET NULL,
-    FOREIGN KEY (title_id)           REFERENCES titles(id) ON DELETE CASCADE,
-
-    UNIQUE (channel_chat_id, channel_message_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_posts_discussion
-    ON posts (discussion_chat_id, discussion_message_id);
-CREATE INDEX IF NOT EXISTS idx_posts_title ON posts (title_id);
 
 -- ============================================================
 -- DOMAINS: dominios normalizados.
@@ -71,10 +68,15 @@ CREATE TABLE IF NOT EXISTS paths (
 
 -- ============================================================
 -- TITLES: unifica movies + tv_shows.
+--   id       -> INTERNO, autogenerado, NO es el id de TMDB.
+--   tmdb_id  -> id real de TMDB; junto a media_type es la clave
+--               natural del título (los catálogos movie/tv de TMDB
+--               son independientes: 550 puede ser movie Y tv).
 -- ============================================================
 CREATE TABLE IF NOT EXISTS titles (
-    id                 INTEGER PRIMARY KEY,
+    id                 INTEGER PRIMARY KEY,   -- interno, NO pasar desde el código
     media_type         TEXT    NOT NULL CHECK (media_type IN ('movie','tv')),
+    tmdb_id            INTEGER NOT NULL,
     original_title     TEXT    NOT NULL,
     title              TEXT    NOT NULL,
     release_date       TEXT,   -- movie: release_date | tv: first_air_date (YYYY-MM-DD)
@@ -87,7 +89,9 @@ CREATE TABLE IF NOT EXISTS titles (
     vote_average       NUMERIC,
     vote_count         INTEGER,
     created_at         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (media_type, tmdb_id)
 );
 
 -- ============================================================
@@ -140,7 +144,7 @@ CREATE TABLE IF NOT EXISTS genres (
 );
 
 -- ============================================================
--- TITLE_GENRES (reemplaza movie_genres + tv_show_genres)
+-- TITLE_GENRES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS title_genres (
     title_id   INTEGER NOT NULL,
@@ -157,7 +161,10 @@ CREATE TABLE IF NOT EXISTS title_genres (
 CREATE INDEX IF NOT EXISTS idx_title_genres_genre ON title_genres (genre_id);
 
 -- ============================================================
--- EXTERNAL_IDS: provider = 'tmdb', 'imdb', 'tvdb', ...
+-- EXTERNAL_IDS: providers EXTERNOS: 'imdb', 'tvdb', ...
+-- 'tmdb' NO se guarda aquí (fuente de verdad = titles.media_type +
+-- titles.tmdb_id). El índice único parcial de abajo mantiene únicos
+-- los ids de los demás providers por proveedor.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS external_ids (
     title_id    INTEGER NOT NULL,
@@ -167,13 +174,15 @@ CREATE TABLE IF NOT EXISTS external_ids (
     updated_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (title_id, provider),
-    FOREIGN KEY (title_id) REFERENCES titles(id) ON DELETE CASCADE,
-    UNIQUE (provider, external_id)
+    FOREIGN KEY (title_id) REFERENCES titles(id) ON DELETE CASCADE
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_external_ids_unique
+    ON external_ids (provider, external_id)
+    WHERE provider <> 'tmdb';
+
 -- ============================================================
--- LINKS (reemplaza a sources y a la vieja origins).
--- Toda URL asociada a un título, en una sola tabla:
+-- LINKS: toda URL asociada a un título.
 --   kind = origin   -> páginas de donde se obtuvo la peli (varias por título)
 --   kind = paste    -> paste(s) con los enlaces de descarga
 --   kind = download -> enlaces directos de descarga
@@ -209,38 +218,50 @@ CREATE INDEX IF NOT EXISTS idx_links_title_path ON links(title_id, path_id);
 -- para el job que revisa enlaces caídos
 CREATE INDEX IF NOT EXISTS idx_links_dead ON links (is_active) WHERE is_active = 0;
 
+-- ============================================================
+-- POSTS: una publicación en un canal.
+--   channel_*    -> para localizar el mensaje en el canal
+--   discussion_* -> para localizar el hilo en el grupo vinculado
+-- El CHECK nuevo obliga a que la pareja discussion_* se llene junta.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS posts (
+    id                      INTEGER PRIMARY KEY,
+    channel_chat_id         INTEGER NOT NULL,
+    channel_message_id      INTEGER NOT NULL,
+    discussion_chat_id      INTEGER,            -- NULL hasta vincular el grupo
+    discussion_message_id   INTEGER,            -- msg que abre el hilo en el grupo
+    title_id                INTEGER NOT NULL,
+    created_at              TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (channel_chat_id)    REFERENCES chats(id)  ON DELETE CASCADE,
+    FOREIGN KEY (discussion_chat_id) REFERENCES chats(id)  ON DELETE SET NULL,
+    FOREIGN KEY (title_id)           REFERENCES titles(id) ON DELETE CASCADE,
+
+    UNIQUE (channel_chat_id, channel_message_id),
+    CHECK ((discussion_chat_id IS NULL) = (discussion_message_id IS NULL))
+);
+
+CREATE INDEX IF NOT EXISTS idx_posts_discussion
+    ON posts (discussion_chat_id, discussion_message_id);
+CREATE INDEX IF NOT EXISTS idx_posts_title ON posts (title_id);
+
+-- ============================================================
+-- POST_MESSAGES: cada mensaje del bot en el hilo (1 post -> N).
+-- Insert-only: una fila por cada publicación. Nunca se actualiza,
+-- por eso no tiene updated_at ni trigger.
+-- ============================================================
 CREATE TABLE IF NOT EXISTS post_messages (
     id          INTEGER PRIMARY KEY,
     post_id     INTEGER NOT NULL,
-    message_id  INTEGER NOT NULL,
+    message_id  INTEGER NOT NULL,          -- id del mensaje del bot en el grupo
     kind        TEXT    NOT NULL DEFAULT 'links'
                 CHECK (kind IN ('links','info','other')),
     created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    UNIQUE (post_id, message_id)
+    UNIQUE (post_id, message_id)   -- idempotencia + índice por post_id gratis
 );
-
--- ============================================================
--- POST_ITEMS: relación post <-> título.
--- bot_message_id: id del primer comentario del bot en el hilo
--- (el que lleva origins + paste + descargas). NULL hasta publicarlo.
--- ============================================================
-/*
-CREATE TABLE IF NOT EXISTS post_items (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    post_id        INTEGER NOT NULL,
-    title_id       INTEGER NOT NULL,
-    bot_message_id INTEGER,
-    created_at     TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at     TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (post_id)  REFERENCES posts(id)  ON DELETE CASCADE,
-    FOREIGN KEY (title_id) REFERENCES titles(id) ON DELETE CASCADE
-);
-*/
-
-CREATE INDEX IF NOT EXISTS idx_post_messages_post ON post_messages(post_id);
---CREATE INDEX IF NOT EXISTS idx_post_messages_title ON post_messages(title_id);
 
 -- ============================================================
 -- VISTA: URL completa ya armada, lista para mostrar/publicar
@@ -266,10 +287,6 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS trg_posts_updated AFTER UPDATE ON posts BEGIN
     UPDATE posts SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-END;
-
-CREATE TRIGGER IF NOT EXISTS trg_post_messages_updated AFTER UPDATE ON post_messages BEGIN
-    UPDATE post_messages SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_titles_updated AFTER UPDATE ON titles BEGIN
