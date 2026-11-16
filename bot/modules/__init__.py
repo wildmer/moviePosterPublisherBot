@@ -1489,7 +1489,8 @@ class MovieSearchHandler:
 
             _id = dt_p["id"]
             # con esto sabemos si ya posteamos la pelicula antes
-            sql = f"""SELECT p.channel_message_id FROM posts AS p WHERE p.title_id = (SELECT t.id FROM titles AS t WHERE t.id = {_id}); """
+            sql = f"""SELECT p.channel_message_id FROM posts AS p WHERE p.title_id = (SELECT t.id FROM titles AS t WHERE t.tmdb_id = {_id} AND t.media_type = '{self.type_media}');"""
+
             _id_channel = db.execute_query(sql).fetch_one()
             # print(_id_channel)
             if _id_channel:
