@@ -286,7 +286,6 @@ async def post(
     runtime = "runtime, "
 
     values = [
-        data["id"],
         media_type,
         original_title,
         tilte,
@@ -295,7 +294,8 @@ async def post(
         year,
         data["overview"],
         data["vote_average"],
-        data["vote_count"]
+        data["vote_count"],
+        data["id"]
     ]
 
     if media_type not in ("movie", "tv"):
@@ -318,7 +318,7 @@ async def post(
 
     total_params = params + "?"
 
-    sql = f"""INSERT INTO titles ( id, media_type, original_title, title, original_language, tagline, release_date, overview, {runtime} {number_of_seasons} {number_of_episodes} vote_average, vote_count ) VALUES ({total_params})"""
+    sql = f"""INSERT INTO titles ( media_type, original_title, title, original_language, tagline, release_date, overview, {runtime} {number_of_seasons} {number_of_episodes} vote_average, vote_count, tmdb_id ) VALUES ({total_params})"""
     db.execute_query(sql, values)
 
     for g in genres:
