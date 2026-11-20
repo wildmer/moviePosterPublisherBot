@@ -319,14 +319,14 @@ async def post(
     total_params = params + "?"
 
     sql = f"""INSERT INTO titles ( media_type, original_title, title, original_language, tagline, release_date, overview, {runtime} {number_of_seasons} {number_of_episodes} vote_average, vote_count, tmdb_id ) VALUES ({total_params})"""
-    db.execute_query(sql, values)
+    title_id = db.execute_query(sql, values)
 
     for g in genres:
         db.save_data("genres", g["id"], g["name"])
-        db.save_data("title_genres", data["id"], g["id"])
+        db.save_data("title_genres", title_id, g["id"])
 
     for ex in external_ids.items():
-        db.save_data("external_ids", data["id"], ex[0], ex[1])
+        db.save_data("external_ids", title_id, ex[0], ex[1])
 
     sql = f"SELECT p.id FROM posts p WHERE p.channel_chat_id = {_['id_channel']} AND p.channel_message_id = {_['channel_message_id']} AND p.discussion_chat_id = '' AND p.discussion_message_id  = '';"
     try:
@@ -336,9 +336,9 @@ async def post(
         LOGGER.info("no id de post")
 
     if p_id:
-        sql = f"""UPDATE posts SET title_id = {id_themoviedb} WHERE id = {p_id};"""
+        sql = f"""UPDATE posts SET title_id = {title_id} WHERE id = {p_id};"""
     else:
-        sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id ) VALUES ({_["id_channel"]}, {_["channel_message_id"]}, {id_themoviedb})"""
+        sql = f"""INSERT INTO posts ( channel_chat_id, channel_message_id, title_id ) VALUES ({_["id_channel"]}, {_["channel_message_id"]}, {title_id})"""
     db.execute_query(sql)
 
 
