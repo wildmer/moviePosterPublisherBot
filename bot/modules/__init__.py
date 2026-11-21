@@ -326,7 +326,17 @@ async def post(
         db.save_data("title_genres", title_id, g["id"])
 
     for ex in external_ids.items():
-        db.save_data("external_ids", title_id, ex[0], ex[1])
+        values = (title_id, ex[0], ex[1],)
+        params = ""
+        size = len(values)
+        if size >= 1:
+            params = "?, " * (size - 1)
+
+        total_params = params + "?"
+        sql = f"""INSERT INTO external_ids ( title_id, provider, external_id ) VALUES ({total_params})"""
+        LOGGER.info(f"Se relizo la siguiente consulta {sql}")
+        id_external_ids = db.execute_query(sql, values)
+        LOGGER.info(f"Se obtuvo lo siguiente de la consulta {id_external_ids}")
 
     sql = f"SELECT p.id FROM posts p WHERE p.channel_chat_id = {_['id_channel']} AND p.channel_message_id = {_['channel_message_id']} AND p.discussion_chat_id = '' AND p.discussion_message_id  = '';"
     try:
