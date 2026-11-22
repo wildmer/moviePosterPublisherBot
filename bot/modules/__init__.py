@@ -319,14 +319,16 @@ async def post(
     total_params = params + "?"
 
     sql = f"""INSERT INTO titles ( media_type, original_title, title, original_language, tagline, release_date, overview, {runtime} {number_of_seasons} {number_of_episodes} vote_average, vote_count, tmdb_id ) VALUES ({total_params})"""
-    title_id = db.execute_query(sql, values)
+    db.execute_query(sql, values)
+    sql = f"""SELECT t.id FROM titles t WHERE t.tmdb_id = {id_themoviedb};"""
+    title_id = db.execute_query(sql).fetch_one()[0]
 
     for g in genres:
         db.save_data("genres", g["id"], g["name"])
         db.save_data("title_genres", title_id, g["id"])
 
     for ex in external_ids.items():
-        values = (title_id, ex[0], ex[1],)
+        values = [title_id, ex[0], ex[1]]
         params = ""
         size = len(values)
         if size >= 1:
@@ -336,7 +338,7 @@ async def post(
         sql = f"""INSERT INTO external_ids ( title_id, provider, external_id ) VALUES ({total_params})"""
         LOGGER.info(f"Se relizo la siguiente consulta {sql}")
         id_external_ids = db.execute_query(sql, values)
-        LOGGER.info(f"Se obtuvo lo siguiente de la consulta {id_external_ids}")
+        # LOGGER.info(f"Se obtuvo lo siguiente de la consulta {id_external_ids}")
 
     sql = f"SELECT p.id FROM posts p WHERE p.channel_chat_id = {_['id_channel']} AND p.channel_message_id = {_['channel_message_id']} AND p.discussion_chat_id = '' AND p.discussion_message_id  = '';"
     try:
