@@ -890,16 +890,20 @@ def save_links_in_db(**kwargs):
     netloc = urlparse(link_origins).netloc
     path = link_origins.split(netloc)[1]
     # db.save_data("domains", "origin", netloc, name_domain)
-    values = ["origin", netloc, name_domain]
-    params = ""
-    size = len(values)
-    if size >= 1:
-        params = "?, " * (size - 1)
+    sql = f"""SELECT d.id FROM domains d WHERE "host" like '{netloc}'"""
+    get_domain_id = db.execute_query(sql).fetch_one()
+    get_domain_id = get_domain_id[0]
+    if not get_domain_id:
+        values = ["origin", netloc, name_domain]
+        params = ""
+        size = len(values)
+        if size >= 1:
+            params = "?, " * (size - 1)
 
-    total_params = params + "?"
-    sql = f"""INSERT INTO domains ( kind, host, name ) VALUES ({total_params})"""
-    LOGGER.info(sql)
-    db.execute_query(sql, values)
+        total_params = params + "?"
+        sql = f"""INSERT INTO domains ( kind, host, name ) VALUES ({total_params})"""
+        LOGGER.info(sql)
+        db.execute_query(sql, values)
     # netloc = f"'{netloc}'"  # Agregar comillas a la variable netloc
     # get_domain_id = db.get_id(
     #     "domains", "host", netloc
